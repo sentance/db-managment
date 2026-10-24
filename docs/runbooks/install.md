@@ -22,7 +22,7 @@ git clone <repo> /srv/pgcp && cd /srv/pgcp/deploy
 ```bash
 docker compose up -d --build
 docker compose ps                                   # все три сервиса healthy
-docker compose exec control-plane cat /var/lib/pgcp-cp/setup-token
+docker exec pgcp-control-plane cat /var/lib/pgcp-cp/setup-token
 ```
 Откройте панель через HTTPS, введите токен, задайте пароль, отсканируйте QR-код в приложении-аутентификаторе и сохраните recovery-коды. После первой настройки токен удаляется.
 

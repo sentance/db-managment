@@ -58,6 +58,6 @@ cat <<'MSG'
 
 Next steps:
   docker compose up -d --build
-  docker compose exec control-plane cat /var/lib/pgcp-cp/setup-token   # one-time setup token
+  docker exec pgcp-control-plane cat /var/lib/pgcp-cp/setup-token   # one-time setup token
 Then open the panel (through your HTTPS reverse proxy) and complete setup with an authenticator app.
 MSG

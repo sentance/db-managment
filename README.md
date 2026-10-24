@@ -32,7 +32,7 @@ docs/           архитектура, ADR, API, runbooks
 cd deploy
 ./install.sh                       # секреты, mTLS-сертификаты, .env (ничего вне deploy/ не трогает)
 docker compose up -d --build
-docker compose exec control-plane cat /var/lib/pgcp-cp/setup-token
+docker exec pgcp-control-plane cat /var/lib/pgcp-cp/setup-token
 ```
 
 Панель слушает `127.0.0.1:8480`. Перед ней нужен HTTPS reverse proxy, подробности в [docs/runbooks/install.md](docs/runbooks/install.md). Для проверки по plain HTTP на localhost поставьте `PGCP_COOKIE_SECURE=false` в `deploy/.env`.

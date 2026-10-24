@@ -38,7 +38,7 @@ Managed-инстансы и приложения продолжают работ
 ```bash
 docker compose exec meta psql -U pgcp -d pgcp -c "delete from admin_user"
 docker compose restart control-plane
-docker compose exec control-plane cat /var/lib/pgcp-cp/setup-token
+docker exec pgcp-control-plane cat /var/lib/pgcp-cp/setup-token
 ```
 Затем пройдите setup заново. Инстансы, роли и секреты сохраняются. Запись о сбросе останется в audit-логе только в виде события нового `auth.setup`. Сам сброс выполняется на сервере и требует shell-доступа: это сознательный «break glass».
 

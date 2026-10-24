@@ -68,7 +68,7 @@ async function finish() {
     <form v-if="step === 'account'" class="form" @submit.prevent="createAccount">
       <h2 style="margin: 0">Initial setup</h2>
       <p class="muted" style="margin: 0">
-        On the server run <code>docker compose exec control-plane cat /var/lib/pgcp-cp/setup-token</code> and paste the token.
+        On the server run <code>docker exec pgcp-control-plane cat /var/lib/pgcp-cp/setup-token</code> and paste the token.
       </p>
       <div class="field"><label>Setup token</label><InputText v-model="form.token" autocomplete="off" /></div>
       <div class="field"><label>Admin username</label><InputText v-model="form.username" autocomplete="username" /></div>
