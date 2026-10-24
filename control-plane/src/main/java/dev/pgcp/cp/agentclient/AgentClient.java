@@ -18,6 +18,7 @@ import org.springframework.web.client.RestClient;
 
 import dev.pgcp.agent.api.AgentApi;
 import dev.pgcp.agent.api.ApiError;
+import dev.pgcp.agent.api.ContainerCredentials;
 import dev.pgcp.agent.api.ContainerInfo;
 import dev.pgcp.agent.api.CreateInstanceRequest;
 import dev.pgcp.agent.api.DeleteInstanceRequest;
@@ -80,6 +81,11 @@ public class AgentClient {
 
     public LogLines logs(String container, int tail) {
         return call(() -> rest.get().uri("/containers/{name}/logs?tail={tail}", container, tail).retrieve().body(LogLines.class));
+    }
+
+    public ContainerCredentials postgresCredentials(String container) {
+        return call(() -> rest.post().uri("/containers/{name}/postgres-credentials", container).retrieve()
+                .body(ContainerCredentials.class));
     }
 
     public String instancesCa() {

@@ -68,6 +68,11 @@ public class InstanceController {
         return instances.registerExternal(req);
     }
 
+    @PostMapping("/external/from-container")
+    public InstanceService.InstanceView registerFromContainer(@RequestBody InstanceService.RegisterFromContainerRequest req) {
+        return instances.registerFromContainer(req);
+    }
+
     @PostMapping("/{id}/actions")
     @org.springframework.web.bind.annotation.ResponseStatus(HttpStatus.ACCEPTED)
     public JobService.Submitted action(@PathVariable UUID id, @RequestBody ActionRequest req) {

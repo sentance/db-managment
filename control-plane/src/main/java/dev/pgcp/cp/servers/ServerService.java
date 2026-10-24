@@ -64,7 +64,8 @@ public class ServerService {
                     where name = ?
                     """).params(f.hostname(), f.os(), f.kernel(), f.cpuCores(), f.memTotalBytes(), f.dockerVersion(),
                     json.write(f), props.serverName()).update();
-        } catch (ApiException e) {
+        } catch (RuntimeException e) {
+            // A broken or missing agent must never prevent the control plane from starting.
             log.warn("cannot refresh host facts: {}", e.getMessage());
         }
     }

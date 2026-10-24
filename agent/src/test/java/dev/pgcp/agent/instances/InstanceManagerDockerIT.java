@@ -140,6 +140,31 @@ class InstanceManagerDockerIT {
         assertThatThrownBy(() -> docker.execFixed(AgentApi.containerName(foreign), List.of("true")))
                 .isInstanceOf(AgentException.class).hasMessageContaining("not managed");
         assertThat(docker.inspect(AgentApi.containerName(foreign))).get().extracting(i -> i.state()).isEqualTo("created");
+        // No POSTGRES_PASSWORD in its environment: nothing to read.
+        assertThatThrownBy(() -> docker.postgresCredentials(AgentApi.containerName(foreign)))
+                .isInstanceOf(AgentException.class).hasMessageContaining("POSTGRES_PASSWORD");
+    }
+
+    @Test
+    void readsCredentialsOnlyFromPostgresContainers() {
+        String pg = "it-cred-" + Long.toString(System.nanoTime(), 36);
+        String other = pg + "-other";
+        try {
+            commands.runChecked(List.of("docker", "create", "--name", pg, "-e", "POSTGRES_PASSWORD=ItCredentialSecret42",
+                    "-e", "POSTGRES_DB=app", "postgres:18-trixie"), null, Duration.ofMinutes(2));
+            var creds = docker.postgresCredentials(pg);
+            assertThat(creds.user()).isEqualTo("postgres");
+            assertThat(creds.password()).isEqualTo("ItCredentialSecret42");
+            assertThat(creds.database()).isEqualTo("app");
+            assertThat(creds.toString()).doesNotContain("ItCredentialSecret42");
+
+            commands.runChecked(List.of("docker", "create", "--name", other, "-e", "POSTGRES_PASSWORD=x",
+                    "docker:29-cli"), null, Duration.ofMinutes(2));
+            assertThatThrownBy(() -> docker.postgresCredentials(other)).isInstanceOf(AgentException.class)
+                    .hasMessageContaining("not a PostgreSQL container");
+        } finally {
+            commands.run(List.of("docker", "rm", "-f", pg, other), null, Duration.ofMinutes(1));
+        }
     }
 
     private static Connection connect(int port, String sslmode) throws Exception {

@@ -6,8 +6,12 @@ import Column from 'primevue/column'
 import Button from 'primevue/button'
 import Tag from 'primevue/tag'
 import Message from 'primevue/message'
+import Dialog from 'primevue/dialog'
+import InputText from 'primevue/inputtext'
+import Select from 'primevue/select'
+import { useToast } from 'primevue/usetoast'
 import { api, errorMessage } from '@/api/client'
-import type { DiscoveredContainer, ServerStatus } from '@/api/types'
+import type { DiscoveredContainer, Instance, Protection, ServerStatus } from '@/api/types'
 import { ago, bytes } from '@/format'
 
 const router = useRouter()
@@ -26,7 +30,44 @@ async function load() {
   }
 }
 
+const toast = useToast()
+const registering = ref<DiscoveredContainer | null>(null)
+const regName = ref('')
+const regProtection = ref<Protection>('PRODUCTION')
+const regBusy = ref(false)
+const regError = ref('')
+
+function suggestName(c: DiscoveredContainer): string {
+  const base = (c.container.labels['coolify.resourceName'] ?? c.container.name).toLowerCase()
+    .replace(/[^a-z0-9-]/g, '-').replace(/-+/g, '-').replace(/^[^a-z]+/, '').slice(0, 31).replace(/-+$/, '')
+  return base.length >= 2 ? base : 'external'
+}
+
 function register(c: DiscoveredContainer) {
+  registering.value = c
+  regName.value = suggestName(c)
+  regProtection.value = 'PRODUCTION'
+  regError.value = ''
+}
+
+async function submitRegister() {
+  regBusy.value = true
+  regError.value = ''
+  try {
+    const created = await api.post<Instance>('/api/instances/external/from-container', {
+      containerName: registering.value!.container.name, name: regName.value, protection: regProtection.value,
+    })
+    registering.value = null
+    toast.add({ severity: 'success', summary: `Registered ${created.name}`, detail: 'Read-only; nothing was changed on the server.', life: 4000 })
+    load()
+  } catch (e) {
+    regError.value = errorMessage(e)
+  } finally {
+    regBusy.value = false
+  }
+}
+
+function registerManually(c: DiscoveredContainer) {
   router.push({ name: 'instances', query: { register: c.container.name, port: '5432' } })
 }
 
@@ -70,11 +111,30 @@ onMounted(load)
               <Tag v-if="data.container.managed" value="managed by pgcp" severity="success" />
               <Tag v-else-if="data.registered" value="registered" severity="info" />
               <Tag v-else-if="data.container.labels['coolify.managed']" value="coolify" severity="secondary" style="margin-right: 6px" />
-              <Button v-if="!data.container.managed && !data.registered" label="Register" size="small" text @click="register(data)" />
+              <Button v-if="!data.container.managed && !data.registered" label="Register" icon="pi pi-link" size="small" text @click="register(data)" />
             </template>
           </Column>
         </DataTable>
       </div>
     </div>
+
+    <Dialog :visible="registering !== null" modal :header="`Register ${registering?.container.name}`" :style="{ width: '520px' }"
+      @update:visible="(v) => !v && (registering = null)">
+      <form class="form" @submit.prevent="submitRegister">
+        <Message severity="info" :closable="false">
+          pgcp connects with the credentials this container was started with (read by the agent, stored encrypted, never shown)
+          and only runs read-only queries. Mode: monitor only.
+        </Message>
+        <div class="field-row">
+          <div class="field"><label>Name in pgcp</label><InputText v-model="regName" /></div>
+          <div class="field"><label>Protection</label><Select v-model="regProtection" :options="['PRODUCTION', 'STANDARD', 'EPHEMERAL']" /></div>
+        </div>
+        <Message v-if="regError" severity="error">{{ regError }}</Message>
+        <div class="actions" style="justify-content: space-between">
+          <Button label="Enter credentials manually" text size="small" @click="registerManually(registering!)" />
+          <Button type="submit" label="Register (read-only)" icon="pi pi-link" :loading="regBusy" :disabled="!regName" />
+        </div>
+      </form>
+    </Dialog>
   </div>
 </template>

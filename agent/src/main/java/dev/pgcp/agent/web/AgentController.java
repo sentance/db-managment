@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import dev.pgcp.agent.api.AgentApi;
+import dev.pgcp.agent.api.ContainerCredentials;
 import dev.pgcp.agent.api.ContainerInfo;
 import dev.pgcp.agent.api.CreateInstanceRequest;
 import dev.pgcp.agent.api.DeleteInstanceRequest;
@@ -81,6 +82,15 @@ public class AgentController {
             throw AgentException.forbidden("logs are only available for PostgreSQL containers");
         }
         return new LogLines(info.name(), docker.logs(info.id(), Math.max(1, Math.min(tail, 5000))));
+    }
+
+    /** Credentials of an existing PostgreSQL container, for registering it as an external instance. */
+    @PostMapping("/containers/{name}/postgres-credentials")
+    public ContainerCredentials postgresCredentials(@PathVariable String name) {
+        if (!AgentApi.NETWORK_NAME.matcher(name).matches()) {
+            throw AgentException.badRequest("invalid container name");
+        }
+        return docker.postgresCredentials(name);
     }
 
     @PostMapping("/images/ensure")

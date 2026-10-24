@@ -28,12 +28,17 @@ import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockHttpSession;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 
+import dev.pgcp.agent.api.ContainerCredentials;
+import dev.pgcp.agent.api.ContainerInfo;
+import dev.pgcp.agent.api.Libc;
+import dev.pgcp.cp.agentclient.AgentClient;
 import dev.pgcp.cp.auth.TotpTestSupport;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
@@ -77,6 +82,9 @@ class ControlPlaneIT {
         }
         r.add("PGCP_AGENT_CLIENT_KEY", () -> "classpath:tls/test-key.pem");
     }
+
+    @MockitoBean
+    AgentClient agent;
 
     @Autowired
     MockMvc mvc;
@@ -125,6 +133,18 @@ class ControlPlaneIT {
         assertThat(call(get("/api/instances/" + monitorId + "/monitoring"), null, 200).get("version").asString())
                 .contains("PostgreSQL 18");
 
+        // --- registration from a discovered container: credentials come from the agent and never leave the server ---
+        String containerSecret = "ContainerEnvSecret987654";
+        org.mockito.Mockito.when(agent.postgresContainers()).thenReturn(java.util.List.of(new ContainerInfo("c1", "unreachable-pg",
+                "postgres:16-alpine", "running", "healthy", "running", false, null, 16, "16.14", Libc.MUSL,
+                java.util.List.of("coolify"), Map.of("coolify.resourceName", "shared-db"), null)));
+        org.mockito.Mockito.when(agent.postgresCredentials("unreachable-pg"))
+                .thenReturn(new ContainerCredentials("unreachable-pg", "postgres", containerSecret, "postgres"));
+        JsonNode unreachable = call(post("/api/instances/external/from-container"), Map.of("containerName", "unreachable-pg"), 400);
+        assertThat(unreachable.toString()).contains("cannot connect").doesNotContain(containerSecret);
+        call(post("/api/instances/external/from-container"), Map.of("containerName", "bad name!"), 400);
+        call(post("/api/instances/external/from-container"), Map.of("containerName", "missing"), 404);
+
         // --- create a database with owner + read-only roles ------------------------------------------------------
         JsonNode created = call(post("/api/instances/" + instanceId + "/databases"), Map.of("name", "shop",
                 "createReadOnlyRole", true), 202);
@@ -168,8 +188,9 @@ class ControlPlaneIT {
         assertThat(call(get("/api/audit/verify"), null, 200).get("intact").asBoolean()).isTrue();
         String audit = call(get("/api/audit?limit=500"), null, 200).toString();
         assertThat(audit).contains("database.create", "role.reveal_password", "auth.step_up")
-                .doesNotContain(ownerPassword, roPassword, rotated, target.getPassword());
-        assertThat(output.getAll()).doesNotContain(ownerPassword, roPassword, rotated, target.getPassword(), totpSecret, token)
+                .doesNotContain(ownerPassword, roPassword, rotated, target.getPassword(), containerSecret);
+        assertThat(output.getAll()).doesNotContain(ownerPassword, roPassword, rotated, target.getPassword(), totpSecret, token,
+                containerSecret)
                 .doesNotContain("generated security password");
 
         // --- recovery codes can be regenerated (step-up still fresh); the OpenAPI document is published to docs/ ---

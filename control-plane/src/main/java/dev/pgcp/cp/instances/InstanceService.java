@@ -52,6 +52,10 @@ public class InstanceService {
             String containerName) {
     }
 
+    /** Registers a PostgreSQL container found on the host, using the credentials it was started with. */
+    public record RegisterFromContainerRequest(String containerName, String name, Instance.Protection protection) {
+    }
+
     public record IssuedCredential(String role, String kind, String password) {
     }
 
@@ -199,56 +203,103 @@ public class InstanceService {
     /** Registers an existing PostgreSQL without changing anything on it: only read-only queries are executed. */
     @Transactional
     public InstanceView registerExternal(RegisterExternalRequest req) {
-        String name = req.name();
+        if (req.username() == null || req.username().isBlank() || req.password() == null) {
+            throw ApiException.badRequest("username and password are required");
+        }
+        String db = req.maintenanceDb() == null || req.maintenanceDb().isBlank() ? "postgres" : req.maintenanceDb();
+        return register(req.name(), req.host(), req.port() == null ? 5432 : req.port(), List.of(db), req.username(),
+                req.password(), req.sslMode() == null ? "prefer" : req.sslMode(),
+                req.mode() == null ? Instance.ExternalMode.MONITOR_ONLY : req.mode(), req.protection(), req.containerName(),
+                "manual");
+    }
+
+    /**
+     * Registers a discovered PostgreSQL container in MONITOR_ONLY mode. The agent reads POSTGRES_USER/PASSWORD from
+     * the container's environment; the password goes straight into encrypted storage and is never returned.
+     */
+    @Transactional
+    public InstanceView registerFromContainer(RegisterFromContainerRequest req) {
+        if (req.containerName() == null || !AgentApi.NETWORK_NAME.matcher(req.containerName()).matches()) {
+            throw ApiException.badRequest("invalid container name");
+        }
+        var container = agent.postgresContainers().stream().filter(c -> c.name().equals(req.containerName())).findFirst()
+                .orElseThrow(() -> ApiException.notFound("PostgreSQL container " + req.containerName()));
+        if (container.managed()) {
+            throw ApiException.conflict("this container is already managed by pgcp");
+        }
+        if (repo.listActive().stream().anyMatch(i -> req.containerName().equals(i.containerName()))) {
+            throw ApiException.conflict("this container is already registered");
+        }
+        var creds = agent.postgresCredentials(req.containerName());
+        String name = req.name() == null || req.name().isBlank() ? suggestName(container.labels(), container.name()) : req.name();
+        return register(name, container.name(), 5432, List.of("postgres", creds.database()), creds.user(), creds.password(),
+                "prefer", Instance.ExternalMode.MONITOR_ONLY, req.protection(), container.name(), "container-env");
+    }
+
+    /** A valid instance name from Coolify's resource name or the container name. */
+    static String suggestName(Map<String, String> labels, String containerName) {
+        String base = labels.getOrDefault("coolify.resourceName", containerName).toLowerCase()
+                .replaceAll("[^a-z0-9-]", "-").replaceAll("-+", "-").replaceAll("^[^a-z]+", "");
+        base = base.length() > 31 ? base.substring(0, 31) : base;
+        base = base.replaceAll("-+$", "");
+        return base.length() < 2 ? "external" : base;
+    }
+
+    private InstanceView register(String name, String host, int port, List<String> maintenanceDbs, String username,
+            String password, String sslMode, Instance.ExternalMode mode, Instance.Protection protectionOrNull,
+            String containerName, String credentialsSource) {
         if (name == null || !AgentApi.INSTANCE_NAME.matcher(name).matches()) {
             throw ApiException.badRequest("instance name must match " + AgentApi.INSTANCE_NAME.pattern());
         }
         if (repo.nameTaken(name)) {
             throw ApiException.conflict("an instance named " + name + " already exists");
         }
-        if (req.host() == null || !req.host().matches("^[A-Za-z0-9._-]{1,253}$")) {
+        if (host == null || !host.matches("^[A-Za-z0-9._-]{1,253}$")) {
             throw ApiException.badRequest("invalid host");
         }
-        int port = req.port() == null ? 5432 : req.port();
-        String sslMode = req.sslMode() == null ? "prefer" : req.sslMode();
         if (!SSL_MODES.contains(sslMode)) {
             throw ApiException.badRequest("sslMode must be one of " + SSL_MODES);
         }
-        if (req.username() == null || req.username().isBlank() || req.password() == null) {
-            throw ApiException.badRequest("username and password are required");
-        }
-        String db = req.maintenanceDb() == null || req.maintenanceDb().isBlank() ? "postgres" : req.maintenanceDb();
-        Instance.ExternalMode mode = req.mode() == null ? Instance.ExternalMode.MONITOR_ONLY : req.mode();
         if (mode == Instance.ExternalMode.MANAGE_OBJECTS) {
             stepUp.require();
         }
+        Instance.Protection protection = protectionOrNull == null ? Instance.Protection.PRODUCTION : protectionOrNull;
         UUID id = UUID.randomUUID();
-        Instance probe = new Instance(id, servers.local().id(), name, Instance.Kind.EXTERNAL, Instance.RUNNING, null, null,
-                null, null, null, req.containerName(), req.host(), port, sslMode, null, null, List.of(), mode,
-                req.protection() == null ? Instance.Protection.PRODUCTION : req.protection(), null, null, Map.of(), db,
-                req.username(), null, null, null);
+        UUID serverId = servers.local().id();
 
-        String version;
-        int versionNum;
-        try (Connection c = connector.open(probe, db, req.username(), req.password())) {
-            version = PgAdmin.serverVersion(c);
-            versionNum = PgAdmin.serverVersionNum(c);
-        } catch (SQLException e) {
-            audit.failure("instance.register_external", "instance", name, Map.of("host", req.host(), "error", e.getMessage()));
-            throw ApiException.badRequest("cannot connect: " + e.getMessage());
+        String version = null;
+        int versionNum = 0;
+        String db = null;
+        String lastError = null;
+        for (String candidate : maintenanceDbs.stream().distinct().toList()) {
+            Instance probe = new Instance(id, serverId, name, Instance.Kind.EXTERNAL, Instance.RUNNING, null, null, null, null,
+                    null, containerName, host, port, sslMode, null, null, List.of(), mode, protection, null, null, Map.of(),
+                    candidate, username, null, null, null);
+            try (Connection c = connector.open(probe, candidate, username, password)) {
+                version = PgAdmin.serverVersion(c);
+                versionNum = PgAdmin.serverVersionNum(c);
+                db = candidate;
+                break;
+            } catch (SQLException e) {
+                lastError = e.getMessage();
+            }
         }
-        long secret = secrets.create("pg-role", req.password());
+        if (db == null) {
+            audit.failure("instance.register_external", "instance", name, Map.of("host", host, "error", String.valueOf(lastError)));
+            throw ApiException.badRequest("cannot connect: " + lastError);
+        }
+        long secret = secrets.create("pg-role", password);
         String libc = null;
-        if (req.containerName() != null) {
-            libc = agent.postgresContainers().stream().filter(c -> c.name().equals(req.containerName())).findFirst()
+        if (containerName != null) {
+            libc = agent.postgresContainers().stream().filter(c -> c.name().equals(containerName)).findFirst()
                     .map(c -> c.libc() == null ? null : c.libc().name()).orElse(null);
         }
-        Instance instance = new Instance(id, probe.serverId(), name, Instance.Kind.EXTERNAL, Instance.RUNNING, null,
-                versionNum / 10000, version, null, libc, req.containerName(), req.host(), port, sslMode, null, null, List.of(),
-                mode, probe.protection(), null, null, Map.of(), db, req.username(), secret, null, null);
+        Instance instance = new Instance(id, serverId, name, Instance.Kind.EXTERNAL, Instance.RUNNING, null, versionNum / 10000,
+                version, null, libc, containerName, host, port, sslMode, null, null, List.of(), mode, protection, null, null,
+                Map.of(), db, username, secret, null, null);
         repo.insert(instance);
-        audit.success("instance.register_external", "instance", id, Map.of("name", name, "host", req.host(), "port", port,
-                "mode", mode.name(), "protection", probe.protection().name()));
+        audit.success("instance.register_external", "instance", id, Map.of("name", name, "host", host, "port", port,
+                "mode", mode.name(), "protection", protection.name(), "credentialsSource", credentialsSource));
         return InstanceView.of(repo.require(id));
     }
 

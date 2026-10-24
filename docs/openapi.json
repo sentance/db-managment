@@ -631,6 +631,34 @@
         }
       }
     },
+    "/api/instances/external/from-container" : {
+      "post" : {
+        "tags" : [ "instance-controller" ],
+        "operationId" : "registerFromContainer",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/RegisterFromContainerRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/InstanceView"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/auth/step-up" : {
       "post" : {
         "tags" : [ "auth-controller" ],
@@ -1819,6 +1847,21 @@
           },
           "containerName" : {
             "type" : "string"
+          }
+        }
+      },
+      "RegisterFromContainerRequest" : {
+        "type" : "object",
+        "properties" : {
+          "containerName" : {
+            "type" : "string"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "protection" : {
+            "type" : "string",
+            "enum" : [ "PRODUCTION", "STANDARD", "EPHEMERAL" ]
           }
         }
       },

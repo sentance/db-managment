@@ -26,6 +26,7 @@ import com.github.dockerjava.core.DockerClientImpl;
 import com.github.dockerjava.httpclient5.ApacheDockerHttpClient;
 
 import dev.pgcp.agent.api.AgentApi;
+import dev.pgcp.agent.api.ContainerCredentials;
 import dev.pgcp.agent.api.ContainerInfo;
 import dev.pgcp.agent.api.Libc;
 import dev.pgcp.agent.config.AgentException;
@@ -90,6 +91,30 @@ public class DockerGateway implements Closeable {
         return Optional.of(new ContainerInfo(r.getId(), name, r.getConfig().getImage(), r.getState().getStatus(), health,
                 describeState(r), managed, labels.get(AgentApi.LABEL_INSTANCE_ID), pgMajor, env.get("PG_VERSION"), libc,
                 networks, reportedLabels(labels), mem == null || mem == 0 ? null : mem));
+    }
+
+    /**
+     * Reads the credentials an official-image PostgreSQL container was started with. Only the three POSTGRES_*
+     * variables are read, and only from containers that are PostgreSQL containers (PG_MAJOR set).
+     */
+    public ContainerCredentials postgresCredentials(String nameOrId) {
+        InspectContainerResponse r;
+        try {
+            r = client.inspectContainerCmd(nameOrId).exec();
+        } catch (NotFoundException e) {
+            throw AgentException.notFound("container not found");
+        }
+        Map<String, String> env = envMap(r.getConfig().getEnv());
+        if (parseMajor(env.get("PG_MAJOR")) == null) {
+            throw AgentException.forbidden("not a PostgreSQL container");
+        }
+        String password = env.get("POSTGRES_PASSWORD");
+        if (password == null || password.isEmpty()) {
+            throw AgentException.notFound("the container has no POSTGRES_PASSWORD in its environment; register it manually");
+        }
+        String user = env.getOrDefault("POSTGRES_USER", "postgres");
+        String name = r.getName().startsWith("/") ? r.getName().substring(1) : r.getName();
+        return new ContainerCredentials(name, user, password, env.getOrDefault("POSTGRES_DB", user));
     }
 
     public boolean imageExists(String tag) {
