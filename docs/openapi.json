@@ -1,0 +1,2642 @@
+{
+  "openapi" : "3.1.0",
+  "info" : {
+    "title" : "OpenAPI definition",
+    "version" : "v0"
+  },
+  "servers" : [ {
+    "url" : "http://localhost",
+    "description" : "Generated server url"
+  } ],
+  "paths" : {
+    "/api/instances/{instanceId}/roles/{role}/lock" : {
+      "put" : {
+        "tags" : [ "role-controller" ],
+        "operationId" : "lock",
+        "parameters" : [ {
+          "name" : "instanceId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "role",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/LockRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/RoleView"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/instances/{instanceId}/roles/{role}/access" : {
+      "put" : {
+        "tags" : [ "role-controller" ],
+        "operationId" : "access",
+        "parameters" : [ {
+          "name" : "instanceId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "role",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/AccessRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/RoleView"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/instances/{id}/protection" : {
+      "put" : {
+        "tags" : [ "instance-controller" ],
+        "operationId" : "protection",
+        "parameters" : [ {
+          "name" : "id",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ProtectionRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/InstanceView"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/instances/{id}/external-mode" : {
+      "put" : {
+        "tags" : [ "instance-controller" ],
+        "operationId" : "mode",
+        "parameters" : [ {
+          "name" : "id",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ModeRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/InstanceView"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/instances/{instanceId}/roles" : {
+      "get" : {
+        "tags" : [ "role-controller" ],
+        "operationId" : "list",
+        "parameters" : [ {
+          "name" : "instanceId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/RoleView"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post" : {
+        "tags" : [ "role-controller" ],
+        "operationId" : "create",
+        "parameters" : [ {
+          "name" : "instanceId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/CreateRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PasswordResult"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/instances/{instanceId}/roles/{role}/rotate-password" : {
+      "post" : {
+        "tags" : [ "role-controller" ],
+        "operationId" : "rotate",
+        "parameters" : [ {
+          "name" : "instanceId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "role",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PasswordResult"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/instances/{instanceId}/roles/{role}/reveal-password" : {
+      "post" : {
+        "tags" : [ "role-controller" ],
+        "operationId" : "reveal",
+        "parameters" : [ {
+          "name" : "instanceId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "role",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PasswordResult"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/instances/{instanceId}/roles/{role}/drop" : {
+      "post" : {
+        "tags" : [ "role-controller" ],
+        "operationId" : "drop",
+        "parameters" : [ {
+          "name" : "instanceId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "role",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/DropRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "202" : {
+            "description" : "Accepted",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Submitted"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/instances/{instanceId}/databases" : {
+      "get" : {
+        "tags" : [ "database-controller" ],
+        "operationId" : "list_1",
+        "parameters" : [ {
+          "name" : "instanceId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/DatabaseView"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post" : {
+        "tags" : [ "database-controller" ],
+        "operationId" : "create_1",
+        "parameters" : [ {
+          "name" : "instanceId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/CreateRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/CreateResult"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/instances/{instanceId}/databases/{name}/rename" : {
+      "post" : {
+        "tags" : [ "database-controller" ],
+        "operationId" : "rename",
+        "parameters" : [ {
+          "name" : "instanceId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "name",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/RenameRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "202" : {
+            "description" : "Accepted",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Submitted"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/instances/{instanceId}/databases/{name}/drop" : {
+      "post" : {
+        "tags" : [ "database-controller" ],
+        "operationId" : "drop_1",
+        "parameters" : [ {
+          "name" : "instanceId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "name",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/DropRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "202" : {
+            "description" : "Accepted",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Submitted"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/instances/{id}/delete" : {
+      "post" : {
+        "tags" : [ "instance-controller" ],
+        "operationId" : "delete",
+        "parameters" : [ {
+          "name" : "id",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/DeleteRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "202" : {
+            "description" : "Accepted",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Submitted"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/instances/{id}/actions" : {
+      "post" : {
+        "tags" : [ "instance-controller" ],
+        "operationId" : "action",
+        "parameters" : [ {
+          "name" : "id",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ActionRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "202" : {
+            "description" : "Accepted",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Submitted"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/instances/managed" : {
+      "post" : {
+        "tags" : [ "instance-controller" ],
+        "operationId" : "createManaged",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/CreateManagedRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/CreateResult"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/instances/external" : {
+      "post" : {
+        "tags" : [ "instance-controller" ],
+        "operationId" : "registerExternal",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/RegisterExternalRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/InstanceView"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/step-up" : {
+      "post" : {
+        "tags" : [ "auth-controller" ],
+        "operationId" : "stepUp",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/CodeRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object",
+                  "additionalProperties" : {
+                    "type" : "string",
+                    "format" : "date-time"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/setup" : {
+      "post" : {
+        "tags" : [ "auth-controller" ],
+        "operationId" : "setup",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SetupRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SetupResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/setup/totp" : {
+      "post" : {
+        "tags" : [ "auth-controller" ],
+        "operationId" : "completeSetup",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/CodeRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SetupComplete"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/recovery-codes" : {
+      "post" : {
+        "tags" : [ "auth-controller" ],
+        "operationId" : "regenerateRecoveryCodes",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object",
+                  "additionalProperties" : {
+                    "type" : "array",
+                    "items" : {
+                      "type" : "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/logout" : {
+      "post" : {
+        "tags" : [ "auth-controller" ],
+        "operationId" : "logout",
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          }
+        }
+      }
+    },
+    "/api/auth/login" : {
+      "post" : {
+        "tags" : [ "auth-controller" ],
+        "operationId" : "login",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/LoginRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Status"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tls/instances-ca" : {
+      "get" : {
+        "tags" : [ "dashboard-controller" ],
+        "operationId" : "instancesCa",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/settings/info" : {
+      "get" : {
+        "tags" : [ "dashboard-controller" ],
+        "operationId" : "info",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Info"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/servers" : {
+      "get" : {
+        "tags" : [ "server-controller" ],
+        "operationId" : "list_2",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/ServerStatus"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/servers/{id}" : {
+      "get" : {
+        "tags" : [ "server-controller" ],
+        "operationId" : "get",
+        "parameters" : [ {
+          "name" : "id",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ServerStatus"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/servers/{id}/containers" : {
+      "get" : {
+        "tags" : [ "server-controller" ],
+        "operationId" : "containers",
+        "parameters" : [ {
+          "name" : "id",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/DiscoveredContainer"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/jobs" : {
+      "get" : {
+        "tags" : [ "job-controller" ],
+        "operationId" : "list_3",
+        "parameters" : [ {
+          "name" : "limit",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 100
+          }
+        }, {
+          "name" : "status",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "resourceKey",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/Job"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/jobs/{id}" : {
+      "get" : {
+        "tags" : [ "job-controller" ],
+        "operationId" : "get_1",
+        "parameters" : [ {
+          "name" : "id",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/JobDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/instances" : {
+      "get" : {
+        "tags" : [ "instance-controller" ],
+        "operationId" : "list_4",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/InstanceView"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/instances/{instanceId}/roles/{role}/dependencies" : {
+      "get" : {
+        "tags" : [ "role-controller" ],
+        "operationId" : "dependencies",
+        "parameters" : [ {
+          "name" : "instanceId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "role",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/Dependency"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/instances/{instanceId}/monitoring" : {
+      "get" : {
+        "tags" : [ "monitoring-controller" ],
+        "operationId" : "overview",
+        "parameters" : [ {
+          "name" : "instanceId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Overview"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/instances/{instanceId}/monitoring/locks" : {
+      "get" : {
+        "tags" : [ "monitoring-controller" ],
+        "operationId" : "locks",
+        "parameters" : [ {
+          "name" : "instanceId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/BlockedSession"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/instances/{instanceId}/monitoring/activity" : {
+      "get" : {
+        "tags" : [ "monitoring-controller" ],
+        "operationId" : "activity",
+        "parameters" : [ {
+          "name" : "instanceId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/Session"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/instances/{instanceId}/databases/{name}" : {
+      "get" : {
+        "tags" : [ "database-controller" ],
+        "operationId" : "details",
+        "parameters" : [ {
+          "name" : "instanceId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "name",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/DatabaseDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/instances/{instanceId}/databases/{name}/connection" : {
+      "get" : {
+        "tags" : [ "database-controller" ],
+        "operationId" : "connection",
+        "parameters" : [ {
+          "name" : "instanceId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "name",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "role",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ConnectionInfo"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/instances/{id}" : {
+      "get" : {
+        "tags" : [ "instance-controller" ],
+        "operationId" : "get_2",
+        "parameters" : [ {
+          "name" : "id",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/InstanceView"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/instances/{id}/logs" : {
+      "get" : {
+        "tags" : [ "instance-controller" ],
+        "operationId" : "logs",
+        "parameters" : [ {
+          "name" : "id",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "name" : "tail",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 300
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/LogLines"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/instances/settings-allowlist" : {
+      "get" : {
+        "tags" : [ "instance-controller" ],
+        "operationId" : "settingsAllowlist",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "object",
+                  "additionalProperties" : {
+                    "type" : "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/dashboard" : {
+      "get" : {
+        "tags" : [ "dashboard-controller" ],
+        "operationId" : "dashboard",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Dashboard"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/status" : {
+      "get" : {
+        "tags" : [ "auth-controller" ],
+        "operationId" : "status",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Status"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/audit" : {
+      "get" : {
+        "tags" : [ "audit-controller" ],
+        "operationId" : "list_5",
+        "parameters" : [ {
+          "name" : "limit",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 100
+          }
+        }, {
+          "name" : "beforeId",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/Entry"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/audit/verify" : {
+      "get" : {
+        "tags" : [ "audit-controller" ],
+        "operationId" : "verify",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Verification"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components" : {
+    "schemas" : {
+      "LockRequest" : {
+        "type" : "object",
+        "properties" : {
+          "locked" : {
+            "type" : "boolean"
+          }
+        }
+      },
+      "RoleView" : {
+        "type" : "object",
+        "properties" : {
+          "name" : {
+            "type" : "string"
+          },
+          "canLogin" : {
+            "type" : "boolean"
+          },
+          "superuser" : {
+            "type" : "boolean"
+          },
+          "createDb" : {
+            "type" : "boolean"
+          },
+          "createRole" : {
+            "type" : "boolean"
+          },
+          "memberOf" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "databases" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "managed" : {
+            "type" : "boolean"
+          },
+          "kind" : {
+            "type" : "string"
+          },
+          "locked" : {
+            "type" : "boolean"
+          },
+          "passwordStored" : {
+            "type" : "boolean"
+          },
+          "rotatedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "protectedRole" : {
+            "type" : "boolean"
+          }
+        }
+      },
+      "AccessRequest" : {
+        "type" : "object",
+        "properties" : {
+          "database" : {
+            "type" : "string"
+          },
+          "access" : {
+            "type" : "string",
+            "enum" : [ "READ_ONLY", "READ_WRITE" ]
+          }
+        }
+      },
+      "ProtectionRequest" : {
+        "type" : "object",
+        "properties" : {
+          "protection" : {
+            "type" : "string",
+            "enum" : [ "PRODUCTION", "STANDARD", "EPHEMERAL" ]
+          }
+        }
+      },
+      "InstanceView" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "serverId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "kind" : {
+            "type" : "string",
+            "enum" : [ "MANAGED", "EXTERNAL" ]
+          },
+          "status" : {
+            "type" : "string"
+          },
+          "statusMessage" : {
+            "type" : "string"
+          },
+          "pgMajor" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "pgVersion" : {
+            "type" : "string"
+          },
+          "image" : {
+            "type" : "string"
+          },
+          "libc" : {
+            "type" : "string"
+          },
+          "containerName" : {
+            "type" : "string"
+          },
+          "host" : {
+            "type" : "string"
+          },
+          "port" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "sslMode" : {
+            "type" : "string"
+          },
+          "bindAddress" : {
+            "type" : "string"
+          },
+          "hostPort" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "extraNetworks" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "externalMode" : {
+            "type" : "string",
+            "enum" : [ "MONITOR_ONLY", "MANAGE_OBJECTS" ]
+          },
+          "protection" : {
+            "type" : "string",
+            "enum" : [ "PRODUCTION", "STANDARD", "EPHEMERAL" ]
+          },
+          "memoryMb" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "cpus" : {
+            "type" : "number"
+          },
+          "settings" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "type" : "string"
+            }
+          },
+          "adminRole" : {
+            "type" : "string"
+          },
+          "objectsWritable" : {
+            "type" : "boolean"
+          },
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }
+      },
+      "ModeRequest" : {
+        "type" : "object",
+        "properties" : {
+          "mode" : {
+            "type" : "string",
+            "enum" : [ "MONITOR_ONLY", "MANAGE_OBJECTS" ]
+          }
+        }
+      },
+      "CreateRequest" : {
+        "type" : "object",
+        "properties" : {
+          "name" : {
+            "type" : "string"
+          },
+          "grants" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/DatabaseGrant"
+            }
+          }
+        }
+      },
+      "DatabaseGrant" : {
+        "type" : "object",
+        "properties" : {
+          "database" : {
+            "type" : "string"
+          },
+          "access" : {
+            "type" : "string",
+            "enum" : [ "READ_ONLY", "READ_WRITE" ]
+          }
+        }
+      },
+      "ConnectionInfo" : {
+        "type" : "object",
+        "properties" : {
+          "database" : {
+            "type" : "string"
+          },
+          "role" : {
+            "type" : "string"
+          },
+          "passwordStored" : {
+            "type" : "boolean"
+          },
+          "endpoints" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/Endpoint"
+            }
+          },
+          "caCertificateUrl" : {
+            "type" : "string"
+          }
+        }
+      },
+      "Endpoint" : {
+        "type" : "object",
+        "properties" : {
+          "kind" : {
+            "type" : "string"
+          },
+          "description" : {
+            "type" : "string"
+          },
+          "host" : {
+            "type" : "string"
+          },
+          "port" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "sslMode" : {
+            "type" : "string"
+          },
+          "uri" : {
+            "type" : "string"
+          }
+        }
+      },
+      "PasswordResult" : {
+        "type" : "object",
+        "properties" : {
+          "role" : {
+            "type" : "string"
+          },
+          "password" : {
+            "type" : "string"
+          },
+          "connections" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ConnectionInfo"
+            }
+          }
+        }
+      },
+      "DropRequest" : {
+        "type" : "object",
+        "properties" : {
+          "confirmName" : {
+            "type" : "string"
+          }
+        }
+      },
+      "Submitted" : {
+        "type" : "object",
+        "properties" : {
+          "jobId" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }
+      },
+      "CreateResult" : {
+        "type" : "object",
+        "properties" : {
+          "jobId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "database" : {
+            "type" : "string"
+          },
+          "credentials" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/IssuedCredential"
+            }
+          },
+          "connection" : {
+            "$ref" : "#/components/schemas/ConnectionInfo"
+          }
+        }
+      },
+      "IssuedCredential" : {
+        "type" : "object",
+        "properties" : {
+          "role" : {
+            "type" : "string"
+          },
+          "kind" : {
+            "type" : "string"
+          },
+          "password" : {
+            "type" : "string"
+          }
+        }
+      },
+      "RenameRequest" : {
+        "type" : "object",
+        "properties" : {
+          "newName" : {
+            "type" : "string"
+          }
+        }
+      },
+      "DeleteRequest" : {
+        "type" : "object",
+        "properties" : {
+          "confirmName" : {
+            "type" : "string"
+          },
+          "deleteVolume" : {
+            "type" : "boolean"
+          }
+        }
+      },
+      "ActionRequest" : {
+        "type" : "object",
+        "properties" : {
+          "action" : {
+            "type" : "string",
+            "enum" : [ "START", "STOP", "RESTART" ]
+          }
+        }
+      },
+      "CreateManagedRequest" : {
+        "type" : "object",
+        "properties" : {
+          "name" : {
+            "type" : "string"
+          },
+          "pgMajor" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "memoryMb" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "cpus" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "protection" : {
+            "type" : "string",
+            "enum" : [ "PRODUCTION", "STANDARD", "EPHEMERAL" ]
+          },
+          "exposure" : {
+            "type" : "string",
+            "enum" : [ "NONE", "LOCALHOST", "PUBLIC" ]
+          },
+          "hostPort" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "extraNetworks" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "settings" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "type" : "string"
+            }
+          },
+          "initialDatabase" : {
+            "$ref" : "#/components/schemas/InitialDatabase"
+          }
+        }
+      },
+      "InitialDatabase" : {
+        "type" : "object",
+        "properties" : {
+          "name" : {
+            "type" : "string"
+          },
+          "owner" : {
+            "type" : "string"
+          },
+          "createReadOnlyRole" : {
+            "type" : "boolean"
+          }
+        }
+      },
+      "RegisterExternalRequest" : {
+        "type" : "object",
+        "properties" : {
+          "name" : {
+            "type" : "string"
+          },
+          "host" : {
+            "type" : "string"
+          },
+          "port" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "maintenanceDb" : {
+            "type" : "string"
+          },
+          "username" : {
+            "type" : "string"
+          },
+          "password" : {
+            "type" : "string"
+          },
+          "sslMode" : {
+            "type" : "string"
+          },
+          "mode" : {
+            "type" : "string",
+            "enum" : [ "MONITOR_ONLY", "MANAGE_OBJECTS" ]
+          },
+          "protection" : {
+            "type" : "string",
+            "enum" : [ "PRODUCTION", "STANDARD", "EPHEMERAL" ]
+          },
+          "containerName" : {
+            "type" : "string"
+          }
+        }
+      },
+      "CodeRequest" : {
+        "type" : "object",
+        "properties" : {
+          "code" : {
+            "type" : "string"
+          }
+        }
+      },
+      "SetupRequest" : {
+        "type" : "object",
+        "properties" : {
+          "token" : {
+            "type" : "string"
+          },
+          "username" : {
+            "type" : "string"
+          },
+          "password" : {
+            "type" : "string"
+          }
+        }
+      },
+      "SetupResponse" : {
+        "type" : "object",
+        "properties" : {
+          "totpSecret" : {
+            "type" : "string"
+          },
+          "otpauthUri" : {
+            "type" : "string"
+          }
+        }
+      },
+      "SetupComplete" : {
+        "type" : "object",
+        "properties" : {
+          "username" : {
+            "type" : "string"
+          },
+          "recoveryCodes" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          }
+        }
+      },
+      "LoginRequest" : {
+        "type" : "object",
+        "properties" : {
+          "username" : {
+            "type" : "string"
+          },
+          "password" : {
+            "type" : "string"
+          },
+          "code" : {
+            "type" : "string"
+          }
+        }
+      },
+      "Status" : {
+        "type" : "object",
+        "properties" : {
+          "setupRequired" : {
+            "type" : "boolean"
+          },
+          "authenticated" : {
+            "type" : "boolean"
+          },
+          "username" : {
+            "type" : "string"
+          },
+          "stepUpValidUntil" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "recoveryCodesLeft" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "Info" : {
+        "type" : "object",
+        "properties" : {
+          "publicHost" : {
+            "type" : "string"
+          },
+          "sqlEditorUrl" : {
+            "type" : "string"
+          },
+          "supportedPgMajors" : {
+            "type" : "array",
+            "items" : {
+              "type" : "integer",
+              "format" : "int32"
+            }
+          },
+          "settingsAllowlist" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "type" : "string"
+            }
+          }
+        }
+      },
+      "DiskUsage" : {
+        "type" : "object",
+        "properties" : {
+          "label" : {
+            "type" : "string"
+          },
+          "path" : {
+            "type" : "string"
+          },
+          "totalBytes" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "freeBytes" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "HostFacts" : {
+        "type" : "object",
+        "properties" : {
+          "hostname" : {
+            "type" : "string"
+          },
+          "os" : {
+            "type" : "string"
+          },
+          "kernel" : {
+            "type" : "string"
+          },
+          "cpuCores" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "memTotalBytes" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "swapTotalBytes" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "dockerVersion" : {
+            "type" : "string"
+          },
+          "disks" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/DiskUsage"
+            }
+          },
+          "filesystems" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          }
+        }
+      },
+      "HostMetrics" : {
+        "type" : "object",
+        "properties" : {
+          "timestamp" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "cpuPercent" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "load1" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "memTotalBytes" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "memAvailableBytes" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "swapUsedBytes" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "diskReadBytesPerSec" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "diskWriteBytesPerSec" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "disks" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/DiskUsage"
+            }
+          }
+        }
+      },
+      "Server" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "agentUrl" : {
+            "type" : "string"
+          },
+          "hostname" : {
+            "type" : "string"
+          },
+          "os" : {
+            "type" : "string"
+          },
+          "kernel" : {
+            "type" : "string"
+          },
+          "cpuCores" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "memTotalBytes" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "dockerVersion" : {
+            "type" : "string"
+          },
+          "lastSeenAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }
+      },
+      "ServerStatus" : {
+        "type" : "object",
+        "properties" : {
+          "server" : {
+            "$ref" : "#/components/schemas/Server"
+          },
+          "agentReachable" : {
+            "type" : "boolean"
+          },
+          "facts" : {
+            "$ref" : "#/components/schemas/HostFacts"
+          },
+          "metrics" : {
+            "$ref" : "#/components/schemas/HostMetrics"
+          },
+          "error" : {
+            "type" : "string"
+          }
+        }
+      },
+      "ContainerInfo" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "string"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "image" : {
+            "type" : "string"
+          },
+          "state" : {
+            "type" : "string"
+          },
+          "health" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "string"
+          },
+          "managed" : {
+            "type" : "boolean"
+          },
+          "instanceId" : {
+            "type" : "string"
+          },
+          "pgMajor" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "pgVersion" : {
+            "type" : "string"
+          },
+          "libc" : {
+            "type" : "string",
+            "enum" : [ "GLIBC", "MUSL", "UNKNOWN" ]
+          },
+          "networks" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "labels" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "type" : "string"
+            }
+          },
+          "memoryLimitBytes" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "DiscoveredContainer" : {
+        "type" : "object",
+        "properties" : {
+          "container" : {
+            "$ref" : "#/components/schemas/ContainerInfo"
+          },
+          "registered" : {
+            "type" : "boolean"
+          }
+        }
+      },
+      "Job" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "type" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "string"
+          },
+          "resourceKey" : {
+            "type" : "string"
+          },
+          "title" : {
+            "type" : "string"
+          },
+          "progress" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "message" : {
+            "type" : "string"
+          },
+          "error" : {
+            "type" : "string"
+          },
+          "attempts" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "createdBy" : {
+            "type" : "string"
+          },
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "startedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "finishedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "result" : {
+            "type" : "object",
+            "additionalProperties" : { }
+          }
+        }
+      },
+      "Event" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "ts" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "level" : {
+            "type" : "string"
+          },
+          "message" : {
+            "type" : "string"
+          }
+        }
+      },
+      "JobDetails" : {
+        "type" : "object",
+        "properties" : {
+          "job" : {
+            "$ref" : "#/components/schemas/Job"
+          },
+          "events" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/Event"
+            }
+          }
+        }
+      },
+      "Dependency" : {
+        "type" : "object",
+        "properties" : {
+          "database" : {
+            "type" : "string"
+          },
+          "kind" : {
+            "type" : "string"
+          },
+          "catalog" : {
+            "type" : "string"
+          },
+          "count" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "Archiver" : {
+        "type" : "object",
+        "properties" : {
+          "archivedCount" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "lastArchivedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "failedCount" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "lastFailedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "archiveMode" : {
+            "type" : "string"
+          }
+        }
+      },
+      "DatabaseStats" : {
+        "type" : "object",
+        "properties" : {
+          "database" : {
+            "type" : "string"
+          },
+          "backends" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "commits" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "rollbacks" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "cacheHitRatio" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "tuplesInserted" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "tuplesUpdated" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "tuplesDeleted" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "deadlocks" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "tempBytes" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "Overview" : {
+        "type" : "object",
+        "properties" : {
+          "version" : {
+            "type" : "string"
+          },
+          "uptimeSeconds" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "maxConnections" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "connections" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "connectionsByState" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "type" : "integer",
+              "format" : "int32"
+            }
+          },
+          "longRunningQueries" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "blockedSessions" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "replicas" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "archiver" : {
+            "$ref" : "#/components/schemas/Archiver"
+          },
+          "databases" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/DatabaseStats"
+            }
+          }
+        }
+      },
+      "BlockedSession" : {
+        "type" : "object",
+        "properties" : {
+          "pid" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "user" : {
+            "type" : "string"
+          },
+          "database" : {
+            "type" : "string"
+          },
+          "seconds" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "blockedBy" : {
+            "type" : "array",
+            "items" : {
+              "type" : "integer",
+              "format" : "int32"
+            }
+          },
+          "query" : {
+            "type" : "string"
+          }
+        }
+      },
+      "Session" : {
+        "type" : "object",
+        "properties" : {
+          "pid" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "database" : {
+            "type" : "string"
+          },
+          "user" : {
+            "type" : "string"
+          },
+          "application" : {
+            "type" : "string"
+          },
+          "client" : {
+            "type" : "string"
+          },
+          "state" : {
+            "type" : "string"
+          },
+          "waitEventType" : {
+            "type" : "string"
+          },
+          "waitEvent" : {
+            "type" : "string"
+          },
+          "querySeconds" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "transactionSeconds" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "query" : {
+            "type" : "string"
+          }
+        }
+      },
+      "DatabaseView" : {
+        "type" : "object",
+        "properties" : {
+          "name" : {
+            "type" : "string"
+          },
+          "owner" : {
+            "type" : "string"
+          },
+          "sizeBytes" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "connections" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "allowConnections" : {
+            "type" : "boolean"
+          },
+          "encoding" : {
+            "type" : "string"
+          },
+          "collation" : {
+            "type" : "string"
+          },
+          "managed" : {
+            "type" : "boolean"
+          },
+          "system" : {
+            "type" : "boolean"
+          }
+        }
+      },
+      "DatabaseDetails" : {
+        "type" : "object",
+        "properties" : {
+          "database" : {
+            "$ref" : "#/components/schemas/DatabaseView"
+          },
+          "extensions" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/Extension"
+            }
+          },
+          "loginRoles" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "extensionsError" : {
+            "type" : "string"
+          }
+        }
+      },
+      "Extension" : {
+        "type" : "object",
+        "properties" : {
+          "name" : {
+            "type" : "string"
+          },
+          "version" : {
+            "type" : "string"
+          },
+          "schema" : {
+            "type" : "string"
+          }
+        }
+      },
+      "LogLines" : {
+        "type" : "object",
+        "properties" : {
+          "container" : {
+            "type" : "string"
+          },
+          "lines" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          }
+        }
+      },
+      "Dashboard" : {
+        "type" : "object",
+        "properties" : {
+          "servers" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ServerStatus"
+            }
+          },
+          "instances" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "instancesByStatus" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "type" : "integer",
+              "format" : "int32"
+            }
+          },
+          "managedDatabases" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "recentJobs" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/Job"
+            }
+          },
+          "warnings" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/Warning"
+            }
+          }
+        }
+      },
+      "Warning" : {
+        "type" : "object",
+        "properties" : {
+          "severity" : {
+            "type" : "string"
+          },
+          "source" : {
+            "type" : "string"
+          },
+          "message" : {
+            "type" : "string"
+          }
+        }
+      },
+      "Entry" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "ts" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "actor" : {
+            "type" : "string"
+          },
+          "sourceIp" : {
+            "type" : "string"
+          },
+          "action" : {
+            "type" : "string"
+          },
+          "targetType" : {
+            "type" : "string"
+          },
+          "targetId" : {
+            "type" : "string"
+          },
+          "outcome" : {
+            "type" : "string"
+          },
+          "details" : {
+            "type" : "object",
+            "additionalProperties" : { }
+          }
+        }
+      },
+      "Verification" : {
+        "type" : "object",
+        "properties" : {
+          "intact" : {
+            "type" : "boolean"
+          },
+          "checked" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "firstBrokenId" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      }
+    }
+  }
+}

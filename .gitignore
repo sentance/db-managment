@@ -1,0 +1,15 @@
+.gradle/
+build/
+out/
+.idea/
+*.iml
+.vscode/
+node_modules/
+web/dist/
+deploy/.env
+deploy/secrets/
+deploy/certs/
+*.key
+*.pem
+!**/src/test/resources/**/*.pem
+.DS_Store

@@ -1,0 +1,60 @@
+spring:
+  application:
+    name: pgcp-agent
+  threads:
+    virtual:
+      enabled: true
+  main:
+    banner-mode: off
+
+server:
+  port: ${PGCP_AGENT_PORT:8443}
+  shutdown: graceful
+  ssl:
+    enabled: ${PGCP_AGENT_TLS_ENABLED:true}
+    bundle: agent-server
+    client-auth: need
+
+spring.ssl.bundle.pem:
+  agent-server:
+    keystore:
+      certificate: ${PGCP_AGENT_TLS_CERT:file:/etc/pgcp/certs/agent.crt}
+      private-key: ${PGCP_AGENT_TLS_KEY:file:/etc/pgcp/certs/agent.key}
+    truststore:
+      certificate: ${PGCP_AGENT_TLS_CA:file:/etc/pgcp/certs/ca.crt}
+
+pgcp:
+  agent:
+    data-dir: ${PGCP_DATA_DIR:/var/lib/pgcp}
+    image-context-dir: ${PGCP_IMAGE_CONTEXT:/opt/pgcp/images/postgres}
+    host-proc-path: ${PGCP_HOST_PROC:}
+    host-root-path: ${PGCP_HOST_ROOT:}
+    disk-paths:
+      root: ${PGCP_DISK_ROOT:/}
+      pgcp-data: ${PGCP_DATA_DIR:/var/lib/pgcp}
+    min-free-disk-bytes: ${PGCP_MIN_FREE_DISK_BYTES:5368709120}
+    mem-headroom-mb: ${PGCP_MEM_HEADROOM_MB:256}
+    docker-command: docker
+    health-timeout: 3m
+    client-cert-cn: ${PGCP_AGENT_CLIENT_CN:pgcp-control-plane}
+
+management:
+  # Plain HTTP on a separate port, reachable only inside the container network, for the Docker healthcheck.
+  server:
+    port: ${PGCP_AGENT_MANAGEMENT_PORT:8081}
+    ssl:
+      enabled: false
+  endpoints:
+    web:
+      exposure:
+        include: health,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+logging:
+  level:
+    root: INFO
+    org.apache.hc: WARN
+    com.github.dockerjava: WARN

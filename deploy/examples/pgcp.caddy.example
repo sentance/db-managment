@@ -1,0 +1,9 @@
+# Site block for the existing edge Caddy. PGCP_PANEL_BIND/PORT in deploy/.env must match the upstream.
+pgcp.example.com {
+	encode zstd gzip
+	reverse_proxy 172.18.0.1:3170
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		-Server
+	}
+}

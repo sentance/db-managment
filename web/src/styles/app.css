@@ -1,0 +1,85 @@
+:root {
+  --app-bg: #f6f7f9;
+  --app-surface: #ffffff;
+  --app-border: #e4e6eb;
+  --app-text: #1d2128;
+  --app-muted: #677084;
+  --app-sidebar: #0f1720;
+  --app-sidebar-text: #c7cfdb;
+  --app-sidebar-active: #1b2a36;
+  --app-accent: #059669;
+  --app-danger: #dc2626;
+  --app-mono: ui-monospace, SFMono-Regular, 'JetBrains Mono', Menlo, Consolas, monospace;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --app-bg: #0b1016;
+    --app-surface: #121a23;
+    --app-border: #223040;
+    --app-text: #e5e9ef;
+    --app-muted: #8d99ab;
+    --app-sidebar: #070b10;
+    --app-sidebar-text: #aeb9c8;
+    --app-sidebar-active: #16222e;
+  }
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  background: var(--app-bg);
+  color: var(--app-text);
+  font-size: 14px;
+  line-height: 1.45;
+}
+a { color: var(--app-accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+code, pre, .mono { font-family: var(--app-mono); font-size: 12.5px; }
+
+.page { padding: 24px 28px 48px; max-width: 1400px; }
+.page-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 20px; flex-wrap: wrap; }
+.page-header h1 { font-size: 22px; font-weight: 650; margin: 0 0 4px; letter-spacing: -0.01em; }
+.page-header .subtitle { color: var(--app-muted); margin: 0; }
+.actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+
+.panel { background: var(--app-surface); border: 1px solid var(--app-border); border-radius: 10px; padding: 18px 20px; margin-bottom: 16px; }
+.panel h2 { font-size: 15px; font-weight: 600; margin: 0 0 12px; }
+.panel h3 { font-size: 13px; font-weight: 600; margin: 16px 0 8px; color: var(--app-muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.grid { display: grid; gap: 16px; }
+.grid.cols-2 { grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); }
+.grid.cols-3 { grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+.grid.cols-4 { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
+
+.stat { display: flex; flex-direction: column; gap: 4px; }
+.stat .label { color: var(--app-muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; }
+.stat .value { font-size: 24px; font-weight: 650; }
+.stat .hint { color: var(--app-muted); font-size: 12px; }
+
+.kv { display: grid; grid-template-columns: 170px 1fr; gap: 8px 16px; margin: 0; }
+.kv dt { color: var(--app-muted); }
+.kv dd { margin: 0; word-break: break-word; }
+
+.meter { height: 8px; border-radius: 4px; background: var(--app-border); overflow: hidden; margin-top: 6px; }
+.meter > span { display: block; height: 100%; background: var(--app-accent); border-radius: 4px; }
+.meter.warn > span { background: #d97706; }
+.meter.danger > span { background: var(--app-danger); }
+
+.form { display: flex; flex-direction: column; gap: 14px; }
+.field { display: flex; flex-direction: column; gap: 6px; }
+.field label { font-weight: 550; font-size: 13px; }
+.field small { color: var(--app-muted); }
+.field-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; }
+.check { display: flex; align-items: center; gap: 8px; }
+
+.muted { color: var(--app-muted); }
+.danger-zone { border-color: color-mix(in srgb, var(--app-danger) 45%, var(--app-border)); }
+.danger-zone h2 { color: var(--app-danger); }
+.uri { font-family: var(--app-mono); font-size: 12.5px; background: var(--app-bg); border: 1px solid var(--app-border); border-radius: 6px; padding: 8px 10px; word-break: break-all; }
+.logs { font-family: var(--app-mono); font-size: 12px; background: #0b1016; color: #d0d7e2; border-radius: 8px; padding: 12px; max-height: 560px; overflow: auto; white-space: pre-wrap; word-break: break-all; }
+.empty { color: var(--app-muted); padding: 20px 0; text-align: center; }
+.chips { display: flex; gap: 4px; flex-wrap: wrap; }
+.link-button { background: none; border: none; color: var(--app-accent); cursor: pointer; padding: 0; font: inherit; }
+.link-button:hover { text-decoration: underline; }
+.p-datatable .p-datatable-tbody > tr > td { vertical-align: top; }

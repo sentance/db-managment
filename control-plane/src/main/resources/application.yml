@@ -1,0 +1,70 @@
+spring:
+  application:
+    name: pgcp-control-plane
+  threads:
+    virtual:
+      enabled: true
+  main:
+    banner-mode: off
+  datasource:
+    url: ${PGCP_META_URL:jdbc:postgresql://pgcp-meta:5432/pgcp}
+    username: ${PGCP_META_USER:pgcp}
+    hikari:
+      maximum-pool-size: 8
+      minimum-idle: 1
+  flyway:
+    locations: classpath:db/migration
+
+server:
+  port: ${PGCP_PORT:8080}
+  shutdown: graceful
+  forward-headers-strategy: framework
+  servlet:
+    session:
+      timeout: 30m
+      cookie:
+        name: pgcp_session
+        http-only: true
+        secure: ${PGCP_COOKIE_SECURE:true}
+        same-site: strict
+
+spring.ssl.bundle.pem:
+  agent-client:
+    keystore:
+      certificate: ${PGCP_AGENT_CLIENT_CERT:file:/etc/pgcp/certs/control-plane.crt}
+      private-key: ${PGCP_AGENT_CLIENT_KEY:file:/etc/pgcp/certs/control-plane.key}
+    truststore:
+      certificate: ${PGCP_AGENT_CA:file:/etc/pgcp/certs/ca.crt}
+
+pgcp:
+  crypto:
+    master-key-file: ${PGCP_MASTER_KEY_FILE:/run/secrets/pgcp_master_key}
+  setup-token-file: ${PGCP_SETUP_TOKEN_FILE:/var/lib/pgcp-cp/setup-token}
+  agent:
+    url: ${PGCP_AGENT_URL:https://pgcp-agent:8443}
+    tls: ${PGCP_AGENT_TLS:true}
+  server-name: ${PGCP_SERVER_NAME:local}
+  public-host: ${PGCP_PUBLIC_HOST:}
+  sql-editor-url: ${PGCP_SQL_EDITOR_URL:}
+  step-up-validity: 5m
+
+springdoc:
+  api-docs:
+    path: /api/docs
+  swagger-ui:
+    path: /api/docs/ui
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+logging:
+  level:
+    root: INFO
+    org.apache.hc: WARN

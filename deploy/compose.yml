@@ -1,0 +1,122 @@
+# pgcp: PostgreSQL Control Plane. Start with ./install.sh, then: docker compose up -d --build
+# Managed PostgreSQL instances are NOT defined here: the agent creates one compose project per instance
+# under ${PGCP_DATA_DIR}/instances/<name>/compose.yml.
+name: pgcp
+
+services:
+  meta:
+    image: postgres:18-trixie
+    container_name: pgcp-meta
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: pgcp
+      POSTGRES_USER: pgcp
+      POSTGRES_PASSWORD_FILE: /run/secrets/meta_password
+      POSTGRES_INITDB_ARGS: "--data-checksums --auth-host=scram-sha-256"
+    command: ["postgres", "-c", "shared_buffers=64MB", "-c", "max_connections=40", "-c", "password_encryption=scram-sha-256"]
+    secrets:
+      - meta_password
+    volumes:
+      - pgcp-meta-data:/var/lib/postgresql
+    networks:
+      - pgcp-internal
+    mem_limit: 256m
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "pgcp", "-d", "pgcp", "-h", "127.0.0.1"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  agent:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+      target: agent
+    image: pgcp-agent:${PGCP_VERSION:-dev}
+    container_name: pgcp-agent
+    restart: unless-stopped
+    environment:
+      PGCP_DATA_DIR: ${PGCP_DATA_DIR:-/var/lib/pgcp}
+      PGCP_HOST_PROC: /host/proc
+      PGCP_HOST_ROOT: /host/etc-root
+      PGCP_DISK_ROOT: /
+      PGCP_AGENT_TLS_CERT: file:/etc/pgcp/certs/agent.crt
+      PGCP_AGENT_TLS_KEY: file:/etc/pgcp/certs/agent.key
+      PGCP_AGENT_TLS_CA: file:/etc/pgcp/certs/ca.crt
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      # Same path inside and outside: generated compose files are resolved by the Docker daemon on the host.
+      - ${PGCP_DATA_DIR:-/var/lib/pgcp}:${PGCP_DATA_DIR:-/var/lib/pgcp}
+      - /proc:/host/proc:ro
+      - /etc/os-release:/host/etc-root/etc/os-release:ro
+      - ./certs/ca.crt:/etc/pgcp/certs/ca.crt:ro
+      - ./certs/agent.crt:/etc/pgcp/certs/agent.crt:ro
+      - ./certs/agent.key:/etc/pgcp/certs/agent.key:ro
+    networks:
+      - pgcp-internal
+    mem_limit: 320m
+
+  control-plane:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+      target: control-plane
+    image: pgcp-control-plane:${PGCP_VERSION:-dev}
+    container_name: pgcp-control-plane
+    restart: unless-stopped
+    depends_on:
+      meta:
+        condition: service_healthy
+      agent:
+        condition: service_healthy
+    environment:
+      SPRING_CONFIG_IMPORT: "optional:configtree:/run/secrets/pgcp/"
+      PGCP_META_URL: jdbc:postgresql://pgcp-meta:5432/pgcp
+      PGCP_META_USER: pgcp
+      PGCP_MASTER_KEY_FILE: /run/secrets/pgcp_master_key
+      PGCP_AGENT_URL: https://pgcp-agent:8443
+      PGCP_AGENT_CLIENT_CERT: file:/etc/pgcp/certs/control-plane.crt
+      PGCP_AGENT_CLIENT_KEY: file:/etc/pgcp/certs/control-plane.key
+      PGCP_AGENT_CA: file:/etc/pgcp/certs/ca.crt
+      PGCP_SERVER_NAME: ${PGCP_SERVER_NAME:-local}
+      PGCP_PUBLIC_HOST: ${PGCP_PUBLIC_HOST:-}
+      PGCP_SQL_EDITOR_URL: ${PGCP_SQL_EDITOR_URL:-}
+      PGCP_COOKIE_SECURE: ${PGCP_COOKIE_SECURE:-true}
+    secrets:
+      - source: meta_password
+        target: /run/secrets/pgcp/spring.datasource.password
+      - source: master_key
+        target: /run/secrets/pgcp_master_key
+    volumes:
+      - pgcp-cp-data:/var/lib/pgcp-cp
+      - ./certs/ca.crt:/etc/pgcp/certs/ca.crt:ro
+      - ./certs/control-plane.crt:/etc/pgcp/certs/control-plane.crt:ro
+      - ./certs/control-plane.key:/etc/pgcp/certs/control-plane.key:ro
+    ports:
+      # Bind to loopback or a private address and put the edge proxy (TLS) in front. Never 0.0.0.0 without TLS.
+      - "${PGCP_PANEL_BIND:-127.0.0.1}:${PGCP_PANEL_PORT:-8480}:8080"
+    networks:
+      - pgcp-internal
+      - pgcp-instances
+    mem_limit: 512m
+
+networks:
+  # No external connectivity: metadata DB and agent API are reachable only from the control plane.
+  pgcp-internal:
+    name: pgcp-internal
+    internal: true
+  # Managed instances join this network; applications can join it too, or instances can join app networks.
+  pgcp-instances:
+    name: pgcp-instances
+
+volumes:
+  pgcp-meta-data:
+    name: pgcp-meta-data
+  pgcp-cp-data:
+    name: pgcp-cp-data
+
+secrets:
+  meta_password:
+    file: ./secrets/meta_password
+  master_key:
+    file: ./secrets/master.key

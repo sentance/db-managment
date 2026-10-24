@@ -1,0 +1,10 @@
+# Lets the control plane reach PostgreSQL containers on the Coolify network (for external instances).
+# Only the pgcp container is attached; nothing managed by Coolify changes.
+services:
+  control-plane:
+    networks:
+      - coolify
+
+networks:
+  coolify:
+    external: true
