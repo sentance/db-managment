@@ -25,8 +25,9 @@ if [ ! -s secrets/meta_password ]; then
 fi
 chmod 644 secrets/master.key secrets/meta_password
 
+# Java's X.509 parser requires named curves instead of explicit EC parameters.
 if [ ! -s certs/ca.key ]; then
-    openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:P-256 -nodes -days 3650 \
+    openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:P-256 -pkeyopt ec_param_enc:named_curve -nodes -days 3650 \
         -subj "/CN=pgcp internal CA" -keyout certs/ca.key -out certs/ca.crt 2>/dev/null
     echo "generated internal CA"
 fi
@@ -34,7 +35,7 @@ fi
 issue() { # name, subject, extensions
     local name=$1 subject=$2 ext=$3
     if [ -s "certs/$name.crt" ]; then return; fi
-    openssl req -newkey ec -pkeyopt ec_paramgen_curve:P-256 -nodes -subj "$subject" \
+    openssl req -newkey ec -pkeyopt ec_paramgen_curve:P-256 -pkeyopt ec_param_enc:named_curve -nodes -subj "$subject" \
         -keyout "certs/$name.key" -out "certs/$name.csr" 2>/dev/null
     openssl x509 -req -in "certs/$name.csr" -CA certs/ca.crt -CAkey certs/ca.key -CAcreateserial \
         -days 825 -sha256 -extfile <(printf '%s\n' "$ext") -out "certs/$name.crt" 2>/dev/null

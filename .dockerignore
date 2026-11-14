@@ -1,0 +1,14 @@
+.git
+.gradle
+**/build
+**/node_modules
+web/dist
+deploy/.env
+deploy/.env.*
+!deploy/.env.example
+!deploy/.env.local.example
+deploy/secrets
+deploy/certs
+deploy/compose.override.yml
+.local-data
+.DS_Store

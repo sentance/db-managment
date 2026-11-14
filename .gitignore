@@ -7,8 +7,11 @@ out/
 node_modules/
 web/dist/
 deploy/.env
+deploy/.env.local
+deploy/compose.override.yml
 deploy/secrets/
 deploy/certs/
+.local-data/
 *.key
 *.pem
 !**/src/test/resources/**/*.pem

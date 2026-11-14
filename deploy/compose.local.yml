@@ -1,0 +1,42 @@
+# Docker Desktop / local development. Use through ./local.sh.
+services:
+  meta:
+    container_name: pgcp-local-meta
+    restart: "no"
+    networks:
+      pgcp-internal:
+        aliases: [pgcp-meta]
+
+  agent:
+    image: pgcp-local-agent:${PGCP_VERSION:-dev}
+    container_name: pgcp-local-agent
+    restart: "no"
+    environment:
+      # Linux host mounts are unavailable on macOS. Report container/VM metrics instead.
+      PGCP_HOST_PROC: /proc
+      PGCP_HOST_ROOT: /
+    volumes: !override
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ${PGCP_DATA_DIR:?Use ./local.sh}:${PGCP_DATA_DIR:?Use ./local.sh}
+      - ./certs/ca.crt:/etc/pgcp/certs/ca.crt:ro
+      - ./certs/agent.crt:/etc/pgcp/certs/agent.crt:ro
+      - ./certs/agent.key:/etc/pgcp/certs/agent.key:ro
+    networks:
+      pgcp-internal:
+        aliases: [pgcp-agent]
+
+  control-plane:
+    image: pgcp-local-control-plane:${PGCP_VERSION:-dev}
+    container_name: pgcp-local-control-plane
+    restart: "no"
+
+networks:
+  pgcp-internal:
+    name: pgcp-local-internal
+  # The agent's generated instance compose files require the name pgcp-instances.
+
+volumes:
+  pgcp-meta-data:
+    name: pgcp-local-meta-data
+  pgcp-cp-data:
+    name: pgcp-local-cp-data

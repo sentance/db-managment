@@ -41,6 +41,18 @@ docker exec pgcp-control-plane cat /var/lib/pgcp-cp/setup-token
 
 ## Разработка
 
+For a local Docker Desktop setup, see [Local development on macOS or Linux](docs/runbooks/local-development.md).
+
+```bash
+cd deploy
+./local.sh init
+./local.sh up
+./local.sh token
+```
+
+Open <http://localhost:8480>. This creates a separate local installation with fresh
+credentials and an empty metadata database.
+
 ```bash
 ./gradlew check                         # unit + интеграционные тесты (нужен Docker: Testcontainers)
 ./gradlew :agent:test -PdockerTests     # + тесты agent на реальном Docker
