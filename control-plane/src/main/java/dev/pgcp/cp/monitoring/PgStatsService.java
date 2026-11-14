@@ -94,6 +94,19 @@ public class PgStatsService {
         });
     }
 
+    /** Small read-only query used independently of the full monitoring dashboard. */
+    public Archiver archiver(UUID instanceId) {
+        return connector.withMaintenance(instances.require(instanceId), c -> {
+            try (Statement s = c.createStatement(); ResultSet rs = s.executeQuery("""
+                    select archived_count, last_archived_time, failed_count, last_failed_time, current_setting('archive_mode')
+                    from pg_stat_archiver
+                    """)) {
+                rs.next();
+                return new Archiver(rs.getLong(1), instant(rs, 2), rs.getLong(3), instant(rs, 4), rs.getString(5));
+            }
+        });
+    }
+
     public List<Session> activity(UUID instanceId) {
         Instance i = instances.require(instanceId);
         return connector.withMaintenance(i, c -> {

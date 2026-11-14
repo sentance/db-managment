@@ -85,6 +85,14 @@ Spring Boot 4, Java 21, virtual threads, JdbcClient (без JPA), Flyway.
 
 ## Что будет на следующих этапах
 
+Phase 2 implementation has started. The development baseline is complete and the
+first backup connector exposes existing pgBackRest catalogues through a typed
+agent inspection operation, with pinned container identities and explicit
+step-up consent. It preserves external ownership and reports backup freshness,
+encryption and WAL observations separately from restore verification. See
+[the delivery plan](phase-2-plan.md), [ADR 0006](adr/0006-backup-and-recovery-boundaries.md)
+and [the operator runbook](runbooks/existing-backups.md). Remaining Phase 2 scope:
+
 - **Phase 2**: в managed-образе уже есть pgBackRest. Agent будет генерировать `pgbackrest.conf` с секретами через env-файл 0600 и `repo-cipher-type=aes-256-cbc`, держать локальный планировщик (бэкапы идут при недоступной панели) и outbox результатов. Логические дампы будут создаваться pg_dump в эфемерных контейнерах. Restore — только в новую базу или новый инстанс; у восстановленного инстанса архивация WAL отключена, чтобы он не писал в stanza источника. Restore-verify — в образе той же libc и major, что у источника. Telegram-алерты.
 - **Phase 3**: интерфейс `BranchProvider` с реализацией `LogicalCloneProvider`.
 - **Phase 4**: `DblabCloneProvider` с проверкой возможностей хоста (ZFS).

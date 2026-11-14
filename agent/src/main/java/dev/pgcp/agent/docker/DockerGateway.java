@@ -1,6 +1,7 @@
 package dev.pgcp.agent.docker;
 
 import java.io.Closeable;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.time.Duration;
@@ -11,6 +12,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.TreeMap;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.nio.charset.StandardCharsets;
 
 import org.springframework.stereotype.Component;
 
@@ -20,12 +23,14 @@ import com.github.dockerjava.api.command.InspectContainerResponse;
 import com.github.dockerjava.api.exception.NotFoundException;
 import com.github.dockerjava.api.model.Container;
 import com.github.dockerjava.api.model.Frame;
+import com.github.dockerjava.api.model.StreamType;
 import com.github.dockerjava.core.DefaultDockerClientConfig;
 import com.github.dockerjava.core.DockerClientConfig;
 import com.github.dockerjava.core.DockerClientImpl;
 import com.github.dockerjava.httpclient5.ApacheDockerHttpClient;
 
 import dev.pgcp.agent.api.AgentApi;
+import dev.pgcp.agent.api.BackupInspectionRequest;
 import dev.pgcp.agent.api.ContainerCredentials;
 import dev.pgcp.agent.api.ContainerInfo;
 import dev.pgcp.agent.api.Libc;
@@ -34,6 +39,7 @@ import dev.pgcp.agent.config.AgentException;
 /**
  * Thin wrapper over the Docker Engine API. Everything here is read-only except {@link #execFixed} and
  * {@link #removeManagedVolume}, both of which refuse to touch anything not labelled as pgcp-managed.
+ * The separate pgBackRest inspector permits only a fixed informational command on an explicitly bound PG source.
  */
 @Component
 public class DockerGateway implements Closeable {
@@ -178,6 +184,51 @@ public class DockerGateway implements Closeable {
         }
         Long exit = client.inspectExecCmd(execId).exec().getExitCodeLong();
         return exit == null ? -1 : exit.intValue();
+    }
+
+    /** Narrow informational capability; never exposes arbitrary exec on external containers. */
+    public String pgBackRestInfo(BackupInspectionRequest req) {
+        try { req.validate(); } catch (IllegalArgumentException e) { throw AgentException.badRequest(e.getMessage()); }
+        ContainerInfo info = inspect(req.containerName())
+                .orElseThrow(() -> AgentException.conflict("backup source container is missing; rebind the source"));
+        if (!info.id().equals(req.containerId())) {
+            throw AgentException.conflict("backup source container was replaced; rebind the source");
+        }
+        if (info.pgMajor() == null) { throw AgentException.forbidden("backup inspection requires a PostgreSQL container"); }
+        if (!"running".equals(info.state())) { throw AgentException.conflict("backup source container is not running"); }
+        // Execute against the immutable ID after validation, never against a reusable name.
+        String execId = client.execCreateCmd(info.id()).withUser("postgres")
+                .withCmd("timeout", "30s", "pgbackrest", "--stanza=" + req.stanza(), "--output=json",
+                        "--log-level-console=off", "--log-level-file=off", "info")
+                .withAttachStdout(true).withAttachStderr(true).exec().getId();
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        AtomicBoolean overflow = new AtomicBoolean();
+        try (var callback = client.execStartCmd(execId).exec(new ResultCallback.Adapter<Frame>() {
+            @Override
+            public void onNext(Frame frame) {
+                if (frame.getStreamType() != StreamType.STDOUT) { return; }
+                synchronized (out) {
+                    if (out.size() + frame.getPayload().length <= 4 * 1024 * 1024) {
+                        out.writeBytes(frame.getPayload());
+                    } else { overflow.set(true); }
+                }
+            }
+        })) {
+            if (!callback.awaitCompletion(40, TimeUnit.SECONDS)) {
+                throw new AgentException(AgentException.Kind.FAILED, "backup inspection timed out");
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new AgentException(AgentException.Kind.FAILED, "backup inspection interrupted");
+        } catch (IOException | com.github.dockerjava.api.exception.DockerException e) {
+            throw new AgentException(AgentException.Kind.FAILED, "backup inspection unavailable");
+        }
+        Long exit = client.inspectExecCmd(execId).exec().getExitCodeLong();
+        if (exit == null || exit != 0 || overflow.get()) {
+            throw new AgentException(AgentException.Kind.FAILED,
+                    "backup inspection failed; check pgBackRest installation, access and repository configuration on the source");
+        }
+        synchronized (out) { return out.toString(StandardCharsets.UTF_8); }
     }
 
     /** Removes a data volume, but only if its labels prove it belongs to the given pgcp instance. */

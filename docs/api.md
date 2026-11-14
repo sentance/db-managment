@@ -70,6 +70,25 @@
 | GET | `/instances/{id}/roles/{role}/dependencies` | что мешает DROP ROLE (по базам) |
 | POST | `/instances/{id}/roles/{role}/drop` | step-up; `{confirmName}` (job; отказ, если роль чем-то владеет) |
 
+## Backup catalogue (Phase 2 milestone 1)
+
+| Method | Path | Behaviour |
+|---|---|---|
+| GET | `/backups` | All active registered instances, including unknown/unconfigured coverage; cached snapshots and current evidence states |
+| PUT | `/backups/sources/{instanceId}` | Step-up; `{containerName, containerId, stanza, staleAfterHours}` binds the registered PostgreSQL container's full immutable ID to an existing pgBackRest stanza |
+| POST | `/backups/sources/{instanceId}/refresh` | Read existing metadata and archive statistics, persist a normalised snapshot, return updated evidence. A failed inspection returns evidence state with a redacted error and cached history |
+| POST | `/backups/sources/{instanceId}/disconnect` | Step-up; remove the binding/snapshot only; 204 |
+
+These operations do not grant `MANAGE_OBJECTS`, change source configuration, take
+over schedules, or delete repository objects. Freshness and verification are
+separate: this milestone always reports `NEVER_VERIFIED`. See the
+[operator runbook](runbooks/existing-backups.md).
+
+The agent endpoint is `POST /v1/backups/inspect {containerName, containerId, stanza}`
+over existing mTLS. Its response is the parsed catalogue only, with numeric
+repository status codes, cipher types, archive ranges and completed backup entries.
+It accepts no arbitrary command, configuration path or tool options.
+
 ## Jobs и audit
 | Метод | Путь | Описание |
 |---|---|---|

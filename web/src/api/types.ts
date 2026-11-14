@@ -103,3 +103,21 @@ export interface Overview {
   archiver: { archivedCount: number; lastArchivedAt: string | null; failedCount: number; lastFailedAt: string | null; archiveMode: string }
   databases: DatabaseStats[]
 }
+
+export interface BackupEntry {
+  label: string; type: string; startedAt: string; finishedAt: string
+  databaseBytes: number; repositoryBytes: number; error: boolean
+}
+export interface BackupCatalogue {
+  stanza: string; statusCode: number
+  repositories: { key: number; statusCode: number; cipher: string }[]
+  archives: { id: string; min: string | null; max: string | null }[]
+  backups: BackupEntry[]
+}
+export interface BackupSource {
+  instanceId: string; instanceName: string; kind: InstanceKind; provider: string | null
+  containerName: string | null; bindingId: string | null; stanza: string | null; staleAfterHours: number | null
+  inspectionState: string; checkedAt: string | null; lastSuccessAt: string | null; error: string | null
+  backupState: string; freshness: string; encryption: string; archiveHealth: string; verificationState: string
+  snapshot: { catalogue: BackupCatalogue; archiver: Overview['archiver'] | null } | null
+}

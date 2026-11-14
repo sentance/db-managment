@@ -59,6 +59,10 @@ npm run build
 For JVM tests, install JDK 21 and run `./gradlew check` with Docker running.
 The Gradle build requests the Java 21 toolchain, even if a newer JDK is installed.
 
+For the Phase 2 backup fixture, Docker integration checks and CI commands, see
+[backup development](backup-development.md). The **Backups** page now supports
+[inspection of existing pgBackRest repositories](existing-backups.md).
+
 ## Stop and resume
 
 ```bash

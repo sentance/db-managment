@@ -171,6 +171,43 @@
         }
       }
     },
+    "/api/backups/sources/{instanceId}" : {
+      "put" : {
+        "tags" : [ "backup-controller" ],
+        "operationId" : "bind",
+        "parameters" : [ {
+          "name" : "instanceId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/BindRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/View"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/instances/{instanceId}/roles" : {
       "get" : {
         "tags" : [ "role-controller" ],
@@ -655,6 +692,53 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "/api/backups/sources/{instanceId}/refresh" : {
+      "post" : {
+        "tags" : [ "backup-controller" ],
+        "operationId" : "refresh",
+        "parameters" : [ {
+          "name" : "instanceId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/View"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/backups/sources/{instanceId}/disconnect" : {
+      "post" : {
+        "tags" : [ "backup-controller" ],
+        "operationId" : "unbind",
+        "parameters" : [ {
+          "name" : "instanceId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "204" : {
+            "description" : "No Content"
           }
         }
       }
@@ -1318,6 +1402,27 @@
         }
       }
     },
+    "/api/backups" : {
+      "get" : {
+        "tags" : [ "backup-controller" ],
+        "operationId" : "list_5",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/View"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/auth/status" : {
       "get" : {
         "tags" : [ "auth-controller" ],
@@ -1339,7 +1444,7 @@
     "/api/audit" : {
       "get" : {
         "tags" : [ "audit-controller" ],
-        "operationId" : "list_5",
+        "operationId" : "list_6",
         "parameters" : [ {
           "name" : "limit",
           "in" : "query",
@@ -1578,6 +1683,214 @@
           "mode" : {
             "type" : "string",
             "enum" : [ "MONITOR_ONLY", "MANAGE_OBJECTS" ]
+          }
+        }
+      },
+      "BindRequest" : {
+        "type" : "object",
+        "properties" : {
+          "containerName" : {
+            "type" : "string"
+          },
+          "containerId" : {
+            "type" : "string"
+          },
+          "stanza" : {
+            "type" : "string"
+          },
+          "staleAfterHours" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }
+      },
+      "Archive" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "string"
+          },
+          "min" : {
+            "type" : "string"
+          },
+          "max" : {
+            "type" : "string"
+          }
+        }
+      },
+      "Archiver" : {
+        "type" : "object",
+        "properties" : {
+          "archivedCount" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "lastArchivedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "failedCount" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "lastFailedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "archiveMode" : {
+            "type" : "string"
+          }
+        }
+      },
+      "Backup" : {
+        "type" : "object",
+        "properties" : {
+          "label" : {
+            "type" : "string"
+          },
+          "type" : {
+            "type" : "string"
+          },
+          "startedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "finishedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "databaseBytes" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "repositoryBytes" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "error" : {
+            "type" : "boolean"
+          }
+        }
+      },
+      "BackupCatalogue" : {
+        "type" : "object",
+        "properties" : {
+          "stanza" : {
+            "type" : "string"
+          },
+          "statusCode" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "repositories" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/Repository"
+            }
+          },
+          "archives" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/Archive"
+            }
+          },
+          "backups" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/Backup"
+            }
+          }
+        }
+      },
+      "Repository" : {
+        "type" : "object",
+        "properties" : {
+          "key" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "statusCode" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "cipher" : {
+            "type" : "string"
+          }
+        }
+      },
+      "Snapshot" : {
+        "type" : "object",
+        "properties" : {
+          "catalogue" : {
+            "$ref" : "#/components/schemas/BackupCatalogue"
+          },
+          "archiver" : {
+            "$ref" : "#/components/schemas/Archiver"
+          }
+        }
+      },
+      "View" : {
+        "type" : "object",
+        "properties" : {
+          "instanceId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "instanceName" : {
+            "type" : "string"
+          },
+          "kind" : {
+            "type" : "string",
+            "enum" : [ "MANAGED", "EXTERNAL" ]
+          },
+          "provider" : {
+            "type" : "string"
+          },
+          "containerName" : {
+            "type" : "string"
+          },
+          "bindingId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "stanza" : {
+            "type" : "string"
+          },
+          "staleAfterHours" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "inspectionState" : {
+            "type" : "string"
+          },
+          "checkedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "lastSuccessAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "error" : {
+            "type" : "string"
+          },
+          "backupState" : {
+            "type" : "string"
+          },
+          "freshness" : {
+            "type" : "string"
+          },
+          "encryption" : {
+            "type" : "string"
+          },
+          "archiveHealth" : {
+            "type" : "string"
+          },
+          "verificationState" : {
+            "type" : "string"
+          },
+          "snapshot" : {
+            "$ref" : "#/components/schemas/Snapshot"
           }
         }
       },
@@ -2303,30 +2616,6 @@
           "count" : {
             "type" : "integer",
             "format" : "int64"
-          }
-        }
-      },
-      "Archiver" : {
-        "type" : "object",
-        "properties" : {
-          "archivedCount" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "lastArchivedAt" : {
-            "type" : "string",
-            "format" : "date-time"
-          },
-          "failedCount" : {
-            "type" : "integer",
-            "format" : "int64"
-          },
-          "lastFailedAt" : {
-            "type" : "string",
-            "format" : "date-time"
-          },
-          "archiveMode" : {
-            "type" : "string"
           }
         }
       },

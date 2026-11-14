@@ -1,0 +1,43 @@
+# Disposable development source. No published ports or production networks.
+services:
+  postgres:
+    build:
+      context: ../../images/postgres
+      dockerfile: Dockerfile
+      args:
+        PG_MAJOR: '16'
+    image: pgcp-backup-fixture:16
+    entrypoint: [docker-entrypoint.sh]
+    environment:
+      POSTGRES_DB: fixture
+      POSTGRES_HOST_AUTH_METHOD: trust
+    command:
+      - postgres
+      - -c
+      - archive_mode=on
+      - -c
+      - archive_command=pgbackrest --stanza=fixture archive-push %p
+      - -c
+      - archive_timeout=60
+    labels:
+      pgcp.fixture: backup
+    volumes:
+      - data:/var/lib/postgresql/data
+      - backups:/var/lib/pgbackrest
+      - ./pgbackrest.conf:/etc/pgbackrest/pgbackrest.conf:ro
+      - ./init.sql:/docker-entrypoint-initdb.d/fixture.sql:ro
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U postgres -d fixture']
+      interval: 2s
+      timeout: 5s
+      retries: 30
+    mem_limit: 384m
+    cpus: 1
+
+networks:
+  default:
+    internal: true
+
+volumes:
+  data:
+  backups:

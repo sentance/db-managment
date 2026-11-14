@@ -18,7 +18,7 @@ const router = createRouter({
     },
     { path: '/databases', name: 'databases', component: () => import('@/views/DatabasesView.vue') },
     { path: '/roles', name: 'roles', component: () => import('@/views/RolesView.vue') },
-    { path: '/backups', name: 'backups', component: () => import('@/views/PlannedView.vue'), props: { feature: 'backups' } },
+    { path: '/backups', name: 'backups', component: () => import('@/views/BackupsView.vue') },
     { path: '/branches', name: 'branches', component: () => import('@/views/PlannedView.vue'), props: { feature: 'branches' } },
     { path: '/restore', name: 'restore', component: () => import('@/views/PlannedView.vue'), props: { feature: 'restore' } },
     { path: '/activity', name: 'activity', component: () => import('@/views/ActivityView.vue') },

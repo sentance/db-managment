@@ -44,7 +44,7 @@ onUnmounted(() => clearInterval(timer))
           <span class="hint">{{ Object.entries(data.instancesByStatus).map(([k, v]) => `${v} ${k.toLowerCase()}`).join(' · ') || 'none yet' }}</span></div>
         <div class="panel stat"><span class="label">Managed databases</span><span class="value">{{ data.managedDatabases }}</span></div>
         <div class="panel stat"><span class="label">Warnings</span><span class="value">{{ data.warnings.filter((w) => w.severity !== 'INFO').length }}</span></div>
-        <div class="panel stat"><span class="label">Backups</span><span class="value muted" style="font-size: 16px">Phase 2</span><span class="hint">pgBackRest integration is next</span></div>
+        <div class="panel stat"><span class="label">Backups</span><RouterLink to="/backups" class="value" style="font-size: 16px">Inspect backup coverage</RouterLink><span class="hint">Existing repositories and recovery evidence</span></div>
       </div>
 
       <div v-if="data.warnings.length" class="panel">

@@ -10,9 +10,19 @@ Self-hosted панель для управления PostgreSQL на собст�
 |---|---|---|
 | Phase 0 | Исследование, архитектура, инвентаризация VPS | ✅ [docs/vps-inventory-tgok.md](docs/vps-inventory-tgok.md) |
 | Phase 1 | Auth + 2FA, managed-инстансы, базы, роли, connection strings, external-инстансы, jobs, audit, мониторинг | ✅ |
-| Phase 2 | pgBackRest, логические бэкапы, S3/R2, расписания, PITR, restore, проверка восстановления, Telegram | следующий |
+| Phase 2 | pgBackRest, логические бэкапы, S3/R2, расписания, PITR, restore, проверка восстановления, Telegram | in progress — milestones 0–1 complete; logical backup/restore next |
 | Phase 3 | Ветки через pg_dump/pg_restore, TTL | — |
 | Phase 4 | Fast branching через DBLab (нужен ZFS) | — |
+
+Next development plan: [Phase 2 — backup coverage and proven recovery](docs/phase-2-plan.md),
+prioritising existing project databases on the VPS.
+
+Implemented so far: existing pgBackRest catalogue inspection, backup history,
+freshness/encryption/WAL observations and explicit source consent. See
+[Inspect existing backups](docs/runbooks/existing-backups.md) and
+[Backup development and validation](docs/runbooks/backup-development.md).
+Backup creation and restore are still planned; catalogue visibility does not
+mean a restore has been verified.
 
 ## Компоненты
 

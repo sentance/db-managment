@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -36,6 +37,8 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.postgresql.PostgreSQLContainer;
 
 import dev.pgcp.agent.api.ContainerCredentials;
+import dev.pgcp.agent.api.BackupCatalogue;
+import dev.pgcp.agent.api.BackupInspectionRequest;
 import dev.pgcp.agent.api.ContainerInfo;
 import dev.pgcp.agent.api.Libc;
 import dev.pgcp.cp.agentclient.AgentClient;
@@ -48,7 +51,7 @@ import tools.jackson.databind.json.JsonMapper;
  * external instance. The agent is not running here; agent-backed paths are covered by the agent's Docker tests and
  * the compose smoke test.
  */
-@SpringBootTest
+@SpringBootTest(properties = "debug=false")
 @AutoConfigureMockMvc
 @Testcontainers
 @ExtendWith(OutputCaptureExtension.class)
@@ -76,6 +79,7 @@ class ControlPlaneIT {
         r.add("pgcp.agent.url", () -> "http://127.0.0.1:9");
         r.add("pgcp.agent.tls", () -> "false");
         r.add("pgcp.health-interval", () -> "1h");
+        r.add("pgcp.backups.initial-delay", () -> "1h");
         r.add("server.servlet.session.cookie.secure", () -> "false");
         for (String k : new String[] { "PGCP_AGENT_CLIENT_CERT", "PGCP_AGENT_CA" }) {
             r.add(k, () -> "classpath:tls/test-cert.pem");
@@ -98,6 +102,7 @@ class ControlPlaneIT {
     void setupLoginManageExternalDatabaseAndAudit(CapturedOutput output) throws Exception {
         mvc.perform(get("/api/auth/status")).andExpect(jsonPath("$.setupRequired").value(true));
         mvc.perform(get("/api/dashboard")).andExpect(status().isUnauthorized());
+        mvc.perform(get("/api/backups")).andExpect(status().isUnauthorized());
 
         // --- initial setup ---------------------------------------------------------------------------------------
         mvc.perform(post("/api/auth/setup").with(csrf()).session(session).contentType(MediaType.APPLICATION_JSON)
@@ -128,10 +133,47 @@ class ControlPlaneIT {
         // A second registration in MONITOR_ONLY mode must refuse every change.
         String monitorId = call(post("/api/instances/external"), Map.of("name", "watch-only", "host", target.getHost(), "port",
                 target.getFirstMappedPort(), "username", target.getUsername(), "password", target.getPassword(), "sslMode",
-                "disable"), 200).get("id").asString();
+                "disable", "containerName", "backup-target"), 200).get("id").asString();
         call(post("/api/instances/" + monitorId + "/databases"), Map.of("name", "nope"), 403);
         assertThat(call(get("/api/instances/" + monitorId + "/monitoring"), null, 200).get("version").asString())
                 .contains("PostgreSQL 18");
+
+        // --- backup consent is independent of MONITOR_ONLY and cannot grant object/lifecycle access ---
+        assertThat(call(get("/api/backups"), null, 200).toString()).contains("NOT_CONFIGURED", "UNKNOWN");
+        String backupContainerId = "a".repeat(64);
+        org.mockito.Mockito.when(agent.postgresContainers()).thenReturn(java.util.List.of(new ContainerInfo(
+                backupContainerId, "backup-target", "postgres:18-trixie", "running", "healthy", "running", false, null,
+                18, "18.4", Libc.GLIBC, java.util.List.of("coolify"), Map.of(), null)));
+        Map<String, Object> binding = Map.of("containerName", "backup-target", "containerId", backupContainerId,
+                "stanza", "shared", "staleAfterHours", 26);
+        Object validStepUp = session.getAttribute("pgcp.stepUpUntil");
+        session.removeAttribute("pgcp.stepUpUntil");
+        call(put("/api/backups/sources/" + monitorId), binding, 403);
+        session.setAttribute("pgcp.stepUpUntil", validStepUp);
+        call(put("/api/backups/sources/" + instanceId), binding, 400);
+        call(put("/api/backups/sources/" + monitorId), binding, 200);
+        var catalogue = new BackupCatalogue("shared", 0,
+                java.util.List.of(new BackupCatalogue.Repository(1, 0, "none")), java.util.List.of(),
+                java.util.List.of(new BackupCatalogue.Backup("20261108-000021F", "full", Instant.now().minusSeconds(30),
+                        Instant.now().minusSeconds(10), 1000, 300, false)));
+        org.mockito.Mockito.when(agent.inspectBackups(new BackupInspectionRequest("backup-target", backupContainerId, "shared")))
+                .thenReturn(catalogue);
+        JsonNode backup = call(post("/api/backups/sources/" + monitorId + "/refresh"), null, 200);
+        assertThat(backup.get("freshness").asString()).isEqualTo("FRESH");
+        assertThat(backup.get("verificationState").asString()).isEqualTo("NEVER_VERIFIED");
+        assertThat(backup.get("encryption").asString()).isEqualTo("UNENCRYPTED");
+        org.mockito.Mockito.when(agent.inspectBackups(org.mockito.ArgumentMatchers.any()))
+                .thenThrow(dev.pgcp.cp.common.ApiException.unavailable("secret-source-credential"));
+        JsonNode unavailable = call(post("/api/backups/sources/" + monitorId + "/refresh"), null, 200);
+        assertThat(unavailable.get("inspectionState").asString()).isEqualTo("UNREACHABLE");
+        assertThat(unavailable.get("freshness").asString()).isEqualTo("UNKNOWN");
+        assertThat(unavailable.toString()).contains("20261108-000021F").doesNotContain("secret-source-credential");
+        org.mockito.Mockito.doThrow(dev.pgcp.cp.common.ApiException.conflict("source replaced"))
+                .when(agent).inspectBackups(org.mockito.ArgumentMatchers.any());
+        assertThat(call(post("/api/backups/sources/" + monitorId + "/refresh"), null, 200)
+                .get("inspectionState").asString()).isEqualTo("BINDING_STALE");
+        call(post("/api/instances/" + monitorId + "/databases"), Map.of("name", "still-nope"), 403);
+        call(post("/api/backups/sources/" + monitorId + "/disconnect"), null, 204);
 
         // --- registration from a discovered container: credentials come from the agent and never leave the server ---
         String containerSecret = "ContainerEnvSecret987654";

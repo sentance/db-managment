@@ -17,6 +17,8 @@ import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClient;
 
 import dev.pgcp.agent.api.AgentApi;
+import dev.pgcp.agent.api.BackupCatalogue;
+import dev.pgcp.agent.api.BackupInspectionRequest;
 import dev.pgcp.agent.api.ApiError;
 import dev.pgcp.agent.api.ContainerCredentials;
 import dev.pgcp.agent.api.ContainerInfo;
@@ -63,6 +65,10 @@ public class AgentClient {
 
     public HostFacts facts() {
         return call(() -> rest.get().uri("/host/facts").retrieve().body(HostFacts.class));
+    }
+
+    public BackupCatalogue inspectBackups(BackupInspectionRequest request) {
+        return call(() -> rest.post().uri("/backups/inspect").body(request).retrieve().body(BackupCatalogue.class));
     }
 
     public HostMetrics metrics() {
