@@ -1,7 +1,7 @@
 # Phase 2: backup coverage and proven recovery
 
-Status: implementation in progress. Milestones 0 and 1 are complete and locally
-verified; milestone 2 is next. User priority: existing project databases on the VPS first.
+Status: implementation in progress. Milestones 0–2 are implemented and locally
+verified; milestone 3 is next. User priority: existing project databases on the VPS first.
 
 ## Completed milestones
 
@@ -9,8 +9,8 @@ verified; milestone 2 is next. User priority: existing project databases on the 
   tests with Docker, and the disposable backup fixture. All 31 existing JVM tests
   passed locally, including agent lifecycle and PostgreSQL-version integration
   tests. The fixture created a physical backup, checked its catalogue and fixture
-  data, and removed its own volumes/network. The hosted workflow will run when
-  pushed; a hosted result is not yet available. See [backup development](runbooks/backup-development.md).
+  data, and removed its own volumes/network. [Hosted CI for the first release passed](https://github.com/sentance/db-managment/actions/runs/43648268343).
+  See [backup development](runbooks/backup-development.md).
 - **1 — existing backup visibility:** the Backups page, V2 metadata migration,
   typed external pgBackRest inspector, consent/rebinding, periodic catalogue
   refresh, redacted failure states and cached evidence are implemented. The real
@@ -22,6 +22,20 @@ verified; milestone 2 is next. User priority: existing project databases on the 
   `/backups` route serves successfully and unauthenticated `/api/backups` returns
   401. Production has not been upgraded or connected to this feature. See
   [existing backups](runbooks/existing-backups.md).
+- **2 — encrypted logical backup and restore:** immutable S3-compatible
+  destinations, one-time recovery-key export, scoped storage tests, explicit
+  export consent, matching-major pg_dump workers, age-encrypted dumps/manifests,
+  durable worker reconciliation, fresh isolated restore targets and table-count
+  verification are implemented. All **43 JVM tests and nine frontend tests** passed.
+  The Docker matrix covers PostgreSQL 16 and 18, pgcrypto ownership, sequence
+  restoration, source changes after backup, agent restart reconciliation and
+  failed-storage cleanup. The assembled application smoke test also passed through
+  real HTTP setup/TOTP, storage creation/test, export, fresh restore, verification
+  and deletion. Worker and application builds passed; V3 is applied in the local
+  stack. Hosted CI includes the assembled test on subsequent pushes. No production
+  source or remote-provider account was used: live-provider acceptance and rollout
+  remain separate. See [logical backups](runbooks/logical-backups.md) and
+  [ADR 0007](adr/0007-logical-backup-encryption.md).
 
 ## Product outcome
 
@@ -39,8 +53,9 @@ The repository has authentication, TOTP, external-instance registration, managed
 instances, databases/roles, jobs, audit, encrypted secret storage and monitoring.
 At the initial baseline, Backups and Restore used `PlannedView.vue`; S3 and Telegram
 settings were placeholders. Milestone 1 now provides `BackupsView.vue`, inspection
-endpoints and source metadata. Restore, S3 destination configuration, backup
-creation, backup scheduling, notifications and restore workers remain unimplemented.
+endpoints and source metadata. Milestone 2 adds logical restore, S3 destinations,
+backup creation and durable workers. Backup schedules, retention, notifications
+and physical/PITR restore remain unimplemented.
 The managed image already installs pgBackRest.
 
 Read-only VPS checks for this plan found:
@@ -154,6 +169,15 @@ change encryption or expire backups in the existing repository implicitly. For
 repositories pgcp owns, let pgBackRest manage physical backup/WAL dependency chains.
 
 ## Technical foundations to address before long-running jobs
+
+Milestone 2 addresses these foundations for logical workers: `LogicalWorkerService`
+stores durable worker identities and reconciles results; CP reconnects by operation
+ID; worker pipes keep dump data separate from diagnostics; credentials use temporary
+protected files; workers receive storage egress; and `OperationService` shares target
+reservations with them. Generic Phase 1 operations retain their existing behaviour.
+Milestone 3 must extend these guarantees to policy scheduling and result outboxes.
+
+Original baseline findings:
 
 - `OperationService` currently marks running operations failed on agent restart;
   it does not reconstruct their work. Add persisted operation descriptors and

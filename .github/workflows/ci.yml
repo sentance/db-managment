@@ -45,6 +45,8 @@ jobs:
       - run: ./gradlew check -PdockerTests --no-daemon
       - name: Backup fixture lifecycle
         run: deploy/backup-fixture.sh smoke
+      - name: Assembled encrypted backup and restore
+        run: python3 deploy/logical-smoke-test.py
       - name: Test reports
         if: always()
         uses: actions/upload-artifact@v4

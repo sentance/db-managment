@@ -15,6 +15,7 @@ services:
       # Linux host mounts are unavailable on macOS. Report container/VM metrics instead.
       PGCP_HOST_PROC: /proc
       PGCP_HOST_ROOT: /
+      PGCP_AGENT_CONTROL_PLANE_CONTAINER: pgcp-local-control-plane
     volumes: !override
       - /var/run/docker.sock:/var/run/docker.sock
       - ${PGCP_DATA_DIR:?Use ./local.sh}:${PGCP_DATA_DIR:?Use ./local.sh}

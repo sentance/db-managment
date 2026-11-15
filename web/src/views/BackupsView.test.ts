@@ -14,6 +14,7 @@ function render() {
       plugins: [PrimeVue],
       stubs: {
         RouterLink: { template: '<a><slot /></a>' },
+        LogicalBackupsPanel: true,
         Dialog: { props: ['visible'], template: '<div v-if="visible"><slot /></div>' },
       },
     },
@@ -31,7 +32,7 @@ describe('backup evidence', () => {
     vi.mocked(api.get).mockResolvedValue([source])
     const wrapper = render()
     await flushPromises()
-    expect(wrapper.text()).toContain('unknown backup coverage')
+    expect(wrapper.text()).toContain('unknown pgBackRest coverage')
     expect(wrapper.text()).toContain('not configured')
     expect(wrapper.text()).not.toContain('no backups')
     expect(api.post).not.toHaveBeenCalled()

@@ -42,8 +42,10 @@ export function statusSeverity(status: string): Severity {
     case 'RUNNING':
     case 'SUCCEEDED':
     case 'SUCCESS':
+    case 'VERIFIED':
       return 'success'
     case 'PROVISIONING':
+    case 'RESTORING':
     case 'PENDING':
     case 'DELETING':
       return 'info'

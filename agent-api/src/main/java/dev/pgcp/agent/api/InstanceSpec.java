@@ -25,7 +25,15 @@ public record InstanceSpec(
         Integer hostPort,
         List<String> extraNetworks,
         String superuserPassword,
-        List<String> tlsHostnames) {
+        List<String> tlsHostnames,
+        UUID restoreOperationId) {
+
+    public InstanceSpec(UUID instanceId, String name, int pgMajor, int memoryMb, double cpus, int shmMb,
+            Map<String,String> settings, String bindAddress, Integer hostPort, List<String> extraNetworks,
+            String superuserPassword, List<String> tlsHostnames) {
+        this(instanceId, name, pgMajor, memoryMb, cpus, shmMb, settings, bindAddress, hostPort,
+                extraNetworks, superuserPassword, tlsHostnames, null);
+    }
 
     @Override
     public String toString() {

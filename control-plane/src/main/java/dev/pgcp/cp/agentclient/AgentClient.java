@@ -19,6 +19,8 @@ import org.springframework.web.client.RestClient;
 import dev.pgcp.agent.api.AgentApi;
 import dev.pgcp.agent.api.BackupCatalogue;
 import dev.pgcp.agent.api.BackupInspectionRequest;
+import dev.pgcp.agent.api.LogicalBackupRequest;
+import dev.pgcp.agent.api.RecoveryKey;
 import dev.pgcp.agent.api.ApiError;
 import dev.pgcp.agent.api.ContainerCredentials;
 import dev.pgcp.agent.api.ContainerInfo;
@@ -69,6 +71,40 @@ public class AgentClient {
 
     public BackupCatalogue inspectBackups(BackupInspectionRequest request) {
         return call(() -> rest.post().uri("/backups/inspect").body(request).retrieve().body(BackupCatalogue.class));
+    }
+
+    public RecoveryKey recoveryKey() {
+        return call(() -> rest.post().uri("/logical-backups/recovery-key").retrieve().body(RecoveryKey.class));
+    }
+
+    public Operation logical(LogicalBackupRequest request, JobContext ctx) throws InterruptedException {
+        Instant deadline = Instant.now().plus(Duration.ofHours(2));
+        Operation op = null;
+        boolean warned = false;
+        int lastProgress = -1;
+        while (Instant.now().isBefore(deadline)) {
+            try {
+                try {
+                    op = call(() -> rest.get().uri("/logical-backups/{id}", request.operationId()).retrieve().body(Operation.class));
+                } catch (ApiException missing) {
+                    if (missing.status() != HttpStatus.NOT_FOUND) throw missing;
+                    op = call(() -> rest.post().uri("/logical-backups").body(request).retrieve().body(Operation.class));
+                }
+                if (op == null) throw ApiException.unavailable("invalid worker response");
+                if (op.status() == OperationStatus.SUCCEEDED) return op;
+                if (op.status() == OperationStatus.FAILED) throw new IllegalStateException("backup worker failed; review source permissions, restore compatibility and storage access");
+                if (op.progress() != lastProgress) {
+                    ctx.progress(Math.max(5, op.progress()), "backup worker running");
+                    lastProgress = op.progress();
+                }
+                warned = false;
+            } catch (ApiException e) {
+                if (e.status() != HttpStatus.CONFLICT && e.status() != HttpStatus.SERVICE_UNAVAILABLE && e.status() != HttpStatus.BAD_GATEWAY) throw e;
+                if (!warned) { ctx.warn("Waiting for the backup worker or agent to become available"); warned = true; }
+            }
+            Thread.sleep(2000);
+        }
+        throw new IllegalStateException("backup worker reconciliation deadline exceeded");
     }
 
     public HostMetrics metrics() {

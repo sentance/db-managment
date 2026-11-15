@@ -37,6 +37,7 @@ pgcp:
     docker-command: docker
     health-timeout: 3m
     client-cert-cn: ${PGCP_AGENT_CLIENT_CN:pgcp-control-plane}
+    control-plane-container: ${PGCP_AGENT_CONTROL_PLANE_CONTAINER:pgcp-control-plane}
 
 management:
   # Plain HTTP on a separate port, reachable only inside the container network, for the Docker healthcheck.

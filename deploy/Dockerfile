@@ -40,6 +40,7 @@ COPY --from=dockercli /usr/local/bin/docker /usr/local/bin/docker
 COPY --from=dockercli /usr/local/libexec/docker/cli-plugins/docker-compose /usr/local/libexec/docker/cli-plugins/docker-compose
 COPY --from=dockercli /usr/local/libexec/docker/cli-plugins/docker-buildx /usr/local/libexec/docker/cli-plugins/docker-buildx
 COPY images/postgres /opt/pgcp/images/postgres
+COPY images/backup-worker /opt/pgcp/images/backup-worker
 COPY --from=jvm /src/agent/build/libs/pgcp-agent.jar /opt/pgcp/agent.jar
 ENV JAVA_TOOL_OPTIONS="-XX:+UseSerialGC -Xmx160m -XX:MaxMetaspaceSize=128m -Xss512k -XX:+ExitOnOutOfMemoryError"
 EXPOSE 8443

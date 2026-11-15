@@ -127,6 +127,10 @@ final class InstanceFiles {
 
     static String compose(InstanceSpec s, String image) {
         String container = AgentApi.containerName(s.name());
+        String network = s.restoreOperationId() == null ? AgentApi.INTERNAL_NETWORK : "pgcp-restore-" + s.restoreOperationId();
+        if (s.restoreOperationId() != null && (s.bindAddress() != null || !nullToEmpty(s.extraNetworks()).isEmpty())) {
+            throw AgentException.badRequest("restore destinations cannot publish ports or join application networks");
+        }
         // PostgreSQL 18 images declare the volume one level up (PGDATA=/var/lib/postgresql/18/docker).
         String dataMount = s.pgMajor() >= 18 ? "/var/lib/postgresql" : "/var/lib/postgresql/data";
         StringBuilder y = new StringBuilder();
@@ -144,6 +148,7 @@ final class InstanceFiles {
         y.append("      ").append(AgentApi.LABEL_MANAGED).append(": \"true\"\n");
         y.append("      ").append(AgentApi.LABEL_INSTANCE_ID).append(": \"").append(s.instanceId()).append("\"\n");
         y.append("      ").append(AgentApi.LABEL_PG_MAJOR).append(": \"").append(s.pgMajor()).append("\"\n");
+        if (s.restoreOperationId() != null) y.append("      pgcp.restore-operation: \"").append(s.restoreOperationId()).append("\"\n");
         y.append("    environment:\n");
         y.append("      POSTGRES_USER: \"postgres\"\n");
         y.append("      POSTGRES_PASSWORD_FILE: \"").append(RUNTIME_DIR).append("/superuser-password\"\n");
@@ -165,7 +170,7 @@ final class InstanceFiles {
             y.append("      - \"").append(s.bindAddress()).append(':').append(s.hostPort()).append(":5432\"\n");
         }
         y.append("    networks:\n");
-        y.append("      - \"").append(AgentApi.INTERNAL_NETWORK).append("\"\n");
+        y.append("      - \"").append(network).append("\"\n");
         for (String n : nullToEmpty(s.extraNetworks())) {
             y.append("      - \"").append(n).append("\"\n");
         }
@@ -187,7 +192,7 @@ final class InstanceFiles {
         y.append("      ").append(AgentApi.LABEL_MANAGED).append(": \"true\"\n");
         y.append("      ").append(AgentApi.LABEL_INSTANCE_ID).append(": \"").append(s.instanceId()).append("\"\n");
         y.append("networks:\n");
-        y.append("  ").append(AgentApi.INTERNAL_NETWORK).append(":\n");
+        y.append("  ").append(network).append(":\n");
         y.append("    external: true\n");
         for (String n : nullToEmpty(s.extraNetworks())) {
             y.append("  ").append(n).append(":\n");

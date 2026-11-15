@@ -743,6 +743,154 @@
         }
       }
     },
+    "/api/backups/logical/{instanceId}" : {
+      "post" : {
+        "tags" : [ "logical-backup-controller" ],
+        "operationId" : "backup",
+        "parameters" : [ {
+          "name" : "instanceId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/BackupRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "202" : {
+            "description" : "Accepted",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Submitted"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/backups/logical/{backupId}/restore" : {
+      "post" : {
+        "tags" : [ "logical-backup-controller" ],
+        "operationId" : "restore",
+        "parameters" : [ {
+          "name" : "backupId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/RestoreRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "202" : {
+            "description" : "Accepted",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Submitted"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/backups/destinations" : {
+      "get" : {
+        "tags" : [ "logical-backup-controller" ],
+        "operationId" : "destinations",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/DestinationView"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post" : {
+        "tags" : [ "logical-backup-controller" ],
+        "operationId" : "create_2",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/DestinationRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/DestinationCreated"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/backups/destinations/{id}/test" : {
+      "post" : {
+        "tags" : [ "logical-backup-controller" ],
+        "operationId" : "test",
+        "parameters" : [ {
+          "name" : "id",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "202" : {
+            "description" : "Accepted",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Submitted"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/auth/step-up" : {
       "post" : {
         "tags" : [ "auth-controller" ],
@@ -1415,6 +1563,48 @@
                   "type" : "array",
                   "items" : {
                     "$ref" : "#/components/schemas/View"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/backups/restores" : {
+      "get" : {
+        "tags" : [ "logical-backup-controller" ],
+        "operationId" : "restores",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/Restore"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/backups/logical" : {
+      "get" : {
+        "tags" : [ "logical-backup-controller" ],
+        "operationId" : "backups",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/Backup"
                   }
                 }
               }
@@ -2178,6 +2368,103 @@
           }
         }
       },
+      "BackupRequest" : {
+        "type" : "object",
+        "properties" : {
+          "database" : {
+            "type" : "string"
+          },
+          "destinationId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "containerId" : {
+            "type" : "string"
+          }
+        }
+      },
+      "RestoreRequest" : {
+        "type" : "object",
+        "properties" : {
+          "instanceName" : {
+            "type" : "string"
+          },
+          "database" : {
+            "type" : "string"
+          },
+          "owner" : {
+            "type" : "string"
+          }
+        }
+      },
+      "DestinationRequest" : {
+        "type" : "object",
+        "properties" : {
+          "name" : {
+            "type" : "string"
+          },
+          "endpoint" : {
+            "type" : "string"
+          },
+          "region" : {
+            "type" : "string"
+          },
+          "bucket" : {
+            "type" : "string"
+          },
+          "accessKey" : {
+            "type" : "string"
+          },
+          "secretKey" : {
+            "type" : "string"
+          }
+        }
+      },
+      "DestinationCreated" : {
+        "type" : "object",
+        "properties" : {
+          "destination" : {
+            "$ref" : "#/components/schemas/DestinationView"
+          },
+          "recoveryIdentity" : {
+            "type" : "string"
+          }
+        }
+      },
+      "DestinationView" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "endpoint" : {
+            "type" : "string"
+          },
+          "region" : {
+            "type" : "string"
+          },
+          "bucket" : {
+            "type" : "string"
+          },
+          "prefix" : {
+            "type" : "string"
+          },
+          "recipient" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "string"
+          },
+          "testedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }
+      },
       "CodeRequest" : {
         "type" : "object",
         "properties" : {
@@ -2915,6 +3202,47 @@
           },
           "message" : {
             "type" : "string"
+          }
+        }
+      },
+      "Restore" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "backupId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "targetName" : {
+            "type" : "string"
+          },
+          "databaseName" : {
+            "type" : "string"
+          },
+          "ownerRole" : {
+            "type" : "string"
+          },
+          "targetInstanceId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "jobId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "status" : {
+            "type" : "string"
+          },
+          "result" : {
+            "type" : "object",
+            "additionalProperties" : { }
+          },
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
           }
         }
       },

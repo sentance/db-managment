@@ -71,7 +71,7 @@ public class ImageService {
         return h;
     }
 
-    static String hashContext(Path dir) {
+    public static String hashContext(Path dir) {
         try (Stream<Path> files = Files.walk(dir)) {
             MessageDigest md = MessageDigest.getInstance("SHA-256");
             for (Path f : files.filter(Files::isRegularFile).sorted().toList()) {

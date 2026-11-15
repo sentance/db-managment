@@ -11,6 +11,7 @@ import Tag from 'primevue/tag'
 import { api, errorMessage } from '@/api/client'
 import type { BackupSource, ContainerInfo, DiscoveredContainer, ServerStatus } from '@/api/types'
 import { ago, bytes, dateTime } from '@/format'
+import LogicalBackupsPanel from '@/components/LogicalBackupsPanel.vue'
 
 const sources = ref<BackupSource[]>([])
 const error = ref('')
@@ -109,10 +110,11 @@ onUnmounted(() => clearInterval(timer))
     <Message v-if="error" severity="error">{{ error }}</Message>
     <Message severity="info" :closable="false">
       Connect an existing pgBackRest repository to inspect its backup history. Catalogues refresh every five minutes.
-      Backup creation and restore workflows are the next milestone. A listed backup has not yet been restore-tested by pgcp.
+      Physical catalogue entries have not been restore-tested by pgcp. Encrypted per-database backup and isolated logical restore are available below.
     </Message>
+    <LogicalBackupsPanel />
     <Message v-if="unknownCount" severity="warn" :closable="false">
-      {{ unknownCount }} instance(s) have unknown backup coverage in pgcp. Existing tools may provide backups; connect a source to inspect them.
+      {{ unknownCount }} instance(s) have unknown pgBackRest coverage in pgcp. Connect a catalogue to inspect it; logical backup history is listed separately.
     </Message>
     <div class="panel">
       <p v-if="!loading && !sources.length">Register your existing PostgreSQL instances on the Servers or Instances page to track their backup coverage.</p>

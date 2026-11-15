@@ -30,7 +30,8 @@ public class CreateManagedInstanceJob implements JobHandler {
     public record InitialDb(String name, String owner, String readOnlyRole) {
     }
 
-    public record Params(UUID instanceId, InitialDb initialDatabase) {
+    public record Params(UUID instanceId, InitialDb initialDatabase, UUID restoreOperationId) {
+        public Params(UUID instanceId, InitialDb initialDatabase) { this(instanceId, initialDatabase, null); }
     }
 
     private final InstanceRepository repo;
@@ -67,7 +68,7 @@ public class CreateManagedInstanceJob implements JobHandler {
         }
         var spec = new InstanceSpec(i.id(), i.name(), i.pgMajor(), i.memoryMb(), i.cpus().doubleValue(),
                 Math.max(64, Math.min(1024, i.memoryMb() / 4)), i.settings(), i.bindAddress(), i.hostPort(),
-                i.extraNetworks(), secrets.read(i.superuserSecretId()), tlsNames);
+                p.restoreOperationId()==null?i.extraNetworks():List.of(), secrets.read(i.superuserSecretId()), tlsNames, p.restoreOperationId());
         ctx.progress(5, "asking the agent to create the container");
         Operation op = agent.createInstance(new CreateInstanceRequest(AgentClient.operationId(ctx.jobId(), "create"), spec));
         op = agent.await(op, ctx, 5, 70);

@@ -69,7 +69,7 @@ public class DockerGateway implements Closeable {
         List<ContainerInfo> result = new ArrayList<>();
         for (Container c : client.listContainersCmd().withShowAll(true).exec()) {
             inspect(c.getId()).ifPresent(info -> {
-                if (!postgresOnly || info.pgMajor() != null) {
+                if (!postgresOnly || (info.pgMajor() != null && !info.labels().containsKey("pgcp.logical-operation"))) {
                     result.add(info);
                 }
             });

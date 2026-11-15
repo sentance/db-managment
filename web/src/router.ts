@@ -20,7 +20,7 @@ const router = createRouter({
     { path: '/roles', name: 'roles', component: () => import('@/views/RolesView.vue') },
     { path: '/backups', name: 'backups', component: () => import('@/views/BackupsView.vue') },
     { path: '/branches', name: 'branches', component: () => import('@/views/PlannedView.vue'), props: { feature: 'branches' } },
-    { path: '/restore', name: 'restore', component: () => import('@/views/PlannedView.vue'), props: { feature: 'restore' } },
+    { path: '/restore', name: 'restore', component: () => import('@/views/RestoreView.vue') },
     { path: '/activity', name: 'activity', component: () => import('@/views/ActivityView.vue') },
     { path: '/settings', name: 'settings', component: () => import('@/views/SettingsView.vue') },
     { path: '/:pathMatch(.*)*', redirect: '/' },

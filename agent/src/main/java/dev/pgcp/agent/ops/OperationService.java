@@ -86,6 +86,19 @@ public class OperationService {
         return Optional.ofNullable(operations.get(id));
     }
 
+    /** Durable worker services reserve the same targets as ordinary lifecycle operations. */
+    public synchronized void reserveExternal(UUID id, String target) {
+        UUID current = runningByTarget.get(target);
+        if (current != null && !current.equals(id)) {
+            throw AgentException.conflict("another operation is running for " + target);
+        }
+        runningByTarget.put(target, id);
+    }
+
+    public synchronized void releaseExternal(UUID id, String target) {
+        runningByTarget.remove(target, id);
+    }
+
     private void execute(Operation initial, Work work) {
         UUID id = initial.id();
         try {

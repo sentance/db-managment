@@ -121,3 +121,16 @@ export interface BackupSource {
   backupState: string; freshness: string; encryption: string; archiveHealth: string; verificationState: string
   snapshot: { catalogue: BackupCatalogue; archiver: Overview['archiver'] | null } | null
 }
+
+export interface BackupDestination {
+  id: string; name: string; endpoint: string; region: string; bucket: string; prefix: string
+  recipient: string; status: string; testedAt: string | null
+}
+export interface LogicalBackup {
+  id: string; instanceId: string; databaseName: string; destinationId: string; containerId: string
+  pgMajor: number; status: string; jobId: string; result: Record<string, string>; verifiedAt: string | null; createdAt: string
+}
+export interface LogicalRestore {
+  id: string; backupId: string; targetName: string; databaseName: string; ownerRole: string; targetInstanceId: string | null
+  jobId: string; status: string; result: Record<string, string>; createdAt: string
+}

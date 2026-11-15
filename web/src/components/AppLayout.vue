@@ -14,7 +14,7 @@ const nav = [
   { to: '/roles', label: 'Users & Permissions', icon: 'pi pi-users' },
   { to: '/backups', label: 'Backups', icon: 'pi pi-cloud-upload' },
   { to: '/branches', label: 'Branches', icon: 'pi pi-share-alt', planned: true },
-  { to: '/restore', label: 'Restore', icon: 'pi pi-history', planned: true },
+  { to: '/restore', label: 'Restore', icon: 'pi pi-history' },
   { to: '/activity', label: 'Activity & Jobs', icon: 'pi pi-list' },
   { to: '/settings', label: 'Settings', icon: 'pi pi-cog' },
 ]

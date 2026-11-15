@@ -88,6 +88,10 @@ public class InstanceRepository {
         jdbc.sql("update instance set pg_version = ?, updated_at = now() where id = ?").params(version, id).update();
     }
 
+    public void isolatedNetwork(UUID id, String network) {
+        jdbc.sql("update instance set extra_networks=? where id=?").params(new String[]{network},id).update();
+    }
+
     public void updateProtection(UUID id, Instance.Protection protection) {
         jdbc.sql("update instance set protection = ?, updated_at = now() where id = ?").params(protection.name(), id).update();
     }

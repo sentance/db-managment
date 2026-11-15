@@ -8,6 +8,21 @@ checks on Linux without production credentials:
 cd web && npm ci && npm test && npm run build
 ```
 
+The logical-backup matrix includes PostgreSQL 16/18, pgcrypto, local S3, encrypted
+artifacts, restart reconciliation, isolated restore and sequence/row checks. A
+separate assembled test uses fresh application containers and a fresh administrator
+to exercise the real HTTP and mTLS paths end to end:
+
+```bash
+python3 deploy/logical-smoke-test.py
+```
+
+It builds its own images, creates only disposable `pgcp-smoke-*` resources and a
+uniquely labelled restore instance, and removes them after completion. Its files
+are under ignored `.local-data/smoke-tests/`. It does not reset the normal local
+administrator or use production credentials. CI runs this test as well. See
+[logical backup operations and limits](logical-backups.md).
+
 JVM reports are in each module's `build/reports/tests/test/`. On macOS, docker-java
 does not read the Docker CLI context. If `/var/run/docker.sock` is absent, set
 `DOCKER_HOST` to the socket shown by `docker context inspect`, for example:

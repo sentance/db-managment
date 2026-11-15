@@ -1,0 +1,29 @@
+services:
+  source:
+    image: postgres:${PGCP_FIXTURE_MAJOR:-18}-trixie
+    environment:
+      POSTGRES_DB: fixture
+      PGDATA: /var/lib/postgresql/fixture-data
+      POSTGRES_HOST_AUTH_METHOD: trust
+    volumes:
+      - source-data:/var/lib/postgresql
+      - ./init.sql:/docker-entrypoint-initdb.d/fixture.sql:ro
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U postgres -d fixture']
+      interval: 2s
+      timeout: 5s
+      retries: 30
+  storage:
+    image: motoserver/moto:5.1.16
+    environment:
+      MOTO_PORT: '5000'
+    healthcheck:
+      test: [CMD-SHELL, 'python -c "import urllib.request; urllib.request.urlopen(\"http://localhost:5000/\")"']
+      interval: 2s
+      timeout: 5s
+      retries: 30
+  control-plane:
+    image: docker:29-cli
+    entrypoint: [sleep, infinity]
+volumes:
+  source-data:

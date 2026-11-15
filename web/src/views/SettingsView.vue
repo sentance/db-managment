@@ -59,7 +59,7 @@ onMounted(async () => {
       </div>
       <div class="panel">
         <h2>Backup storage (S3 / R2)</h2>
-        <p class="muted">Phase 2: pgBackRest repositories on AWS S3, Cloudflare R2, Hetzner Object Storage or any S3-compatible endpoint.</p>
+        <p class="muted">Encrypted logical backups support your S3-compatible bucket. Configure a destination and save its recovery key on the <RouterLink to="/backups#logical">Backups page</RouterLink>.</p>
       </div>
       <div class="panel">
         <h2>Notifications (Telegram)</h2>

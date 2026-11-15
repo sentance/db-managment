@@ -89,6 +89,24 @@ over existing mTLS. Its response is the parsed catalogue only, with numeric
 repository status codes, cipher types, archive ranges and completed backup entries.
 It accepts no arbitrary command, configuration path or tool options.
 
+## Encrypted logical backups (Phase 2 milestone 2)
+
+| Method | Path | Behaviour |
+|---|---|---|
+| GET | `/backups/destinations` | Public destination settings and connection-test state; no credentials or identity |
+| POST | `/backups/destinations` | Step-up; `{name,endpoint,region,bucket,accessKey,secretKey}` → 201 `{destination,recoveryIdentity}`; identity shown once with `no-store` |
+| POST | `/backups/destinations/{id}/test` | Step-up; 202 `{jobId}`; scoped test object write/read/delete |
+| GET | `/backups/logical` | Logical backup history and verification timestamps |
+| POST | `/backups/logical/{instanceId}` | Step-up; `{database,destinationId,containerId}` consents to one export → 202 `{id,jobId}` |
+| POST | `/backups/logical/{backupId}/restore` | Step-up; `{instanceName,database,owner}` creates a fresh isolated destination → 202 `{id,jobId}` |
+| GET | `/backups/restores` | Restore history, target instance IDs and verification results |
+
+Agent mTLS endpoints: `POST /v1/logical-backups` submits a typed durable worker
+request; `GET /v1/logical-backups/{id}` reconciles status/results; `POST
+/v1/logical-backups/recovery-key` generates a key without journalling it. Secrets
+travel only in the protected request and temporary credential file. See
+[logical backups](runbooks/logical-backups.md) and [ADR 0007](adr/0007-logical-backup-encryption.md).
+
 ## Jobs и audit
 | Метод | Путь | Описание |
 |---|---|---|

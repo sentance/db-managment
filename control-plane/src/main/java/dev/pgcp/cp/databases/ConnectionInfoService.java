@@ -35,7 +35,7 @@ public class ConnectionInfoService {
         String secret = password == null ? MASK : password;
         if (i.managed()) {
             List<String> nets = new ArrayList<>();
-            nets.add(AgentApi.INTERNAL_NETWORK);
+            if (i.extraNetworks().stream().noneMatch(n->n.startsWith("pgcp-restore-"))) nets.add(AgentApi.INTERNAL_NETWORK);
             nets.addAll(i.extraNetworks());
             endpoints.add(endpoint("DOCKER_NETWORK", "From containers on Docker networks: " + String.join(", ", nets),
                     i.containerName(), 5432, "require", database, role, secret));

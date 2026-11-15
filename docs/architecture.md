@@ -93,6 +93,14 @@ encryption and WAL observations separately from restore verification. See
 [the delivery plan](phase-2-plan.md), [ADR 0006](adr/0006-backup-and-recovery-boundaries.md)
 and [the operator runbook](runbooks/existing-backups.md). Remaining Phase 2 scope:
 
+Milestone 2 adds [age-encrypted logical backups and verified isolated restores](runbooks/logical-backups.md).
+The agent launches labelled, bounded worker containers and retains durable operation
+descriptors to reconnect after restarts. PostgreSQL dump data streams through age;
+the encrypted manifest is published last. Restore destinations carry a matching
+operation label and use a dedicated internal network, without source/application
+networks or public ports. Their configured owner replaces source ownership/ACLs;
+extension preflight and table-count verification are explicit. See [ADR 0007](adr/0007-logical-backup-encryption.md).
+
 - **Phase 2**: в managed-образе уже есть pgBackRest. Agent будет генерировать `pgbackrest.conf` с секретами через env-файл 0600 и `repo-cipher-type=aes-256-cbc`, держать локальный планировщик (бэкапы идут при недоступной панели) и outbox результатов. Логические дампы будут создаваться pg_dump в эфемерных контейнерах. Restore — только в новую базу или новый инстанс; у восстановленного инстанса архивация WAL отключена, чтобы он не писал в stanza источника. Restore-verify — в образе той же libc и major, что у источника. Telegram-алерты.
 - **Phase 3**: интерфейс `BranchProvider` с реализацией `LogicalCloneProvider`.
 - **Phase 4**: `DblabCloneProvider` с проверкой возможностей хоста (ZFS).

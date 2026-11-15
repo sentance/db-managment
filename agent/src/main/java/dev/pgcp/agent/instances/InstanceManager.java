@@ -15,6 +15,8 @@ import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 
 import dev.pgcp.agent.api.AgentApi;
 import dev.pgcp.agent.api.ContainerInfo;
@@ -37,7 +39,7 @@ import tools.jackson.databind.json.JsonMapper;
 @Service
 public class InstanceManager {
 
-    record InstanceRecord(UUID instanceId, String name, int pgMajor, Instant createdAt) {
+    record InstanceRecord(UUID instanceId, String name, int pgMajor, Instant createdAt, UUID restoreOperationId) {
     }
 
     private static final Logger log = LoggerFactory.getLogger(InstanceManager.class);
@@ -49,9 +51,17 @@ public class InstanceManager {
     private final InstanceCa ca;
     private final ImageService images;
     private final JsonMapper json;
+    private final String controlPlaneContainer;
 
     public InstanceManager(AgentProperties props, DockerGateway docker, CommandRunner commands, HostService host,
             InstanceCa ca, ImageService images, JsonMapper json) {
+        this(props, docker, commands, host, ca, images, json, "pgcp-control-plane");
+    }
+
+    @Autowired
+    public InstanceManager(AgentProperties props, DockerGateway docker, CommandRunner commands, HostService host,
+            InstanceCa ca, ImageService images, JsonMapper json,
+            @Value("${pgcp.agent.control-plane-container:pgcp-control-plane}") String controlPlaneContainer) {
         this.props = props;
         this.docker = docker;
         this.commands = commands;
@@ -59,6 +69,7 @@ public class InstanceManager {
         this.ca = ca;
         this.images = images;
         this.json = json;
+        this.controlPlaneContainer = controlPlaneContainer;
     }
 
     public Map<String, String> create(InstanceSpec spec, Progress progress) throws IOException {
@@ -73,6 +84,9 @@ public class InstanceManager {
             if (!rec.instanceId().equals(spec.instanceId())) {
                 throw AgentException.conflict("instance name " + spec.name() + " is used by another instance");
             }
+            if (!java.util.Objects.equals(rec.restoreOperationId(), spec.restoreOperationId())) {
+                throw AgentException.conflict("an existing instance cannot be adopted as a restore destination");
+            }
         }
         docker.inspect(container).ifPresent(c -> {
             if (!c.managed() || !spec.instanceId().toString().equals(c.instanceId())) {
@@ -86,6 +100,13 @@ public class InstanceManager {
             if (!docker.networkExists(n)) {
                 throw AgentException.badRequest("network does not exist: " + n);
             }
+        }
+
+        if (spec.restoreOperationId() != null) {
+            if (spec.bindAddress() != null || (spec.extraNetworks() != null && !spec.extraNetworks().isEmpty())) {
+                throw AgentException.badRequest("restore destinations must remain isolated");
+            }
+            restoreNetwork(spec.restoreOperationId());
         }
 
         if (!resuming) {
@@ -143,12 +164,22 @@ public class InstanceManager {
 
     public Map<String, String> delete(String name, UUID instanceId, boolean deleteVolume, Progress progress) throws IOException {
         Path dir = requireManaged(name, instanceId);
+        InstanceRecord record = readRecord(dir);
         progress.update(10, "stopping and removing container");
         commands.runChecked(composeArgs(name, dir.resolve("compose.yml"), "down", "--remove-orphans"), dir,
                 Duration.ofMinutes(5));
         if (deleteVolume) {
             progress.update(60, "removing data volume");
             docker.removeManagedVolume(AgentApi.volumeName(name), instanceId.toString());
+        }
+        if (record.restoreOperationId() != null) {
+            String network = "pgcp-restore-" + record.restoreOperationId();
+            String owner = commands.run(List.of(props.dockerCommand(), "network", "inspect", "--format",
+                    "{{index .Labels \"pgcp.restore-operation\"}}", network), null, Duration.ofSeconds(20)).output().trim();
+            if (owner.equals(record.restoreOperationId().toString())) {
+                commands.run(List.of(props.dockerCommand(), "network", "disconnect", network, controlPlaneContainer), null, Duration.ofSeconds(20));
+                commands.run(List.of(props.dockerCommand(), "network", "rm", network), null, Duration.ofSeconds(20));
+            }
         }
         Path archive = props.instancesDir().resolve(".deleted").resolve(name + "-" + Instant.now().getEpochSecond());
         Files.createDirectories(archive.getParent());
@@ -193,6 +224,22 @@ public class InstanceManager {
         return dir;
     }
 
+    private void restoreNetwork(UUID operationId) {
+        String network = "pgcp-restore-" + operationId;
+        if (docker.networkExists(network)) {
+            String owner = commands.runChecked(List.of(props.dockerCommand(), "network", "inspect", "--format",
+                    "{{index .Labels \"pgcp.restore-operation\"}}", network), null, Duration.ofSeconds(20)).trim();
+            if (!operationId.toString().equals(owner)) throw AgentException.forbidden("restore network belongs to another operation");
+        } else {
+            commands.runChecked(List.of(props.dockerCommand(), "network", "create", "--internal", "--label",
+                    "pgcp.restore-operation=" + operationId, network), null, Duration.ofSeconds(30));
+        }
+        var cp = docker.inspect(controlPlaneContainer).orElseThrow(() -> AgentException.notFound("configured control-plane container not found"));
+        if (!cp.networks().contains(network)) {
+            commands.runChecked(List.of(props.dockerCommand(), "network", "connect", network, controlPlaneContainer), null, Duration.ofSeconds(30));
+        }
+    }
+
     private void checkResources(InstanceSpec spec) {
         long needed = (spec.memoryMb() + (long) props.memHeadroomMb()) * 1024 * 1024;
         long available = host.memAvailableBytes();
@@ -213,7 +260,7 @@ public class InstanceManager {
         Files.createDirectories(tls);
         if (!resuming) {
             Files.write(dir.resolve("instance.json"),
-                    json.writeValueAsBytes(new InstanceRecord(spec.instanceId(), spec.name(), spec.pgMajor(), Instant.now())));
+                    json.writeValueAsBytes(new InstanceRecord(spec.instanceId(), spec.name(), spec.pgMajor(), Instant.now(), spec.restoreOperationId())));
         }
         Files.writeString(config.resolve("pg_hba.conf"), InstanceFiles.pgHba(spec), StandardCharsets.UTF_8);
         Files.writeString(config.resolve("pg_ident.conf"), InstanceFiles.pgIdent(), StandardCharsets.UTF_8);

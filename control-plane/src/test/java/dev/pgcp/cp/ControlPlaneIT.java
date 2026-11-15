@@ -39,6 +39,11 @@ import org.testcontainers.postgresql.PostgreSQLContainer;
 import dev.pgcp.agent.api.ContainerCredentials;
 import dev.pgcp.agent.api.BackupCatalogue;
 import dev.pgcp.agent.api.BackupInspectionRequest;
+import dev.pgcp.agent.api.LogicalBackupRequest;
+import dev.pgcp.agent.api.RecoveryKey;
+import dev.pgcp.agent.api.Operation;
+import dev.pgcp.agent.api.OperationType;
+import dev.pgcp.agent.api.OperationStatus;
 import dev.pgcp.agent.api.ContainerInfo;
 import dev.pgcp.agent.api.Libc;
 import dev.pgcp.cp.agentclient.AgentClient;
@@ -226,13 +231,47 @@ class ControlPlaneIT {
         awaitJob(dropJob);
         assertThat(call(get("/api/instances/" + instanceId + "/databases"), null, 200).toString()).doesNotContain("\"shop\"");
 
+        // --- encrypted storage setup and opt-in logical export; source remains MONITOR_ONLY -----------------------
+        String storageSecret="StorageSecretMustRemainPrivate42";
+        String recoveryIdentity="AGE-SECRET-KEY-1TESTRECOVERYIDENTITY42";
+        org.mockito.Mockito.when(agent.recoveryKey()).thenReturn(new RecoveryKey("age1"+"q".repeat(58),recoveryIdentity));
+        Map<String,Object> destinationRequest=Map.of("name","test storage","endpoint","https://s3.example.test","region","auto",
+                "bucket","pgcp-fixture","accessKey","AccessKey42","secretKey",storageSecret);
+        Object unlocked=session.getAttribute("pgcp.stepUpUntil");
+        session.removeAttribute("pgcp.stepUpUntil");
+        call(post("/api/backups/destinations"),destinationRequest,403);
+        session.setAttribute("pgcp.stepUpUntil",unlocked);
+        JsonNode destination=call(post("/api/backups/destinations"),destinationRequest,201);
+        String destinationId=destination.get("destination").get("id").asString();
+        assertThat(destination.get("recoveryIdentity").asString()).isEqualTo(recoveryIdentity);
+        assertThat(call(get("/api/backups/destinations"),null,200).toString()).doesNotContain(storageSecret,recoveryIdentity,"credentialsSecretId","identitySecretId");
+        org.mockito.Mockito.when(agent.postgresContainers()).thenReturn(java.util.List.of(new ContainerInfo(
+                backupContainerId,"backup-target","postgres:18-trixie","running","healthy","running",false,null,
+                18,"18.4",Libc.GLIBC,java.util.List.of("coolify"),Map.of(),null)));
+        Map<String,Object> export=Map.of("database","postgres","destinationId",destinationId,"containerId",backupContainerId);
+        call(post("/api/backups/logical/"+monitorId),export,400);
+        org.mockito.Mockito.when(agent.logical(org.mockito.ArgumentMatchers.any(),org.mockito.ArgumentMatchers.any())).thenAnswer(invocation->{
+            LogicalBackupRequest r=invocation.getArgument(0);
+            Map<String,String> result=r.action()==LogicalBackupRequest.Action.TEST_STORAGE?Map.of("verified","true"):
+                    Map.of("artifactKey",r.artifactKey(),"manifestKey",r.manifestKey(),"sha256","a".repeat(64),"sizeBytes","123","manifest","{}");
+            return new Operation(r.operationId(),r.action()==LogicalBackupRequest.Action.TEST_STORAGE?OperationType.TEST_STORAGE:OperationType.LOGICAL_BACKUP,
+                    "fixture",OperationStatus.SUCCEEDED,100,"done",null,Instant.now(),Instant.now(),result);
+        });
+        awaitJob(call(post("/api/backups/destinations/"+destinationId+"/test"),null,202).get("jobId").asString());
+        JsonNode exportJob=call(post("/api/backups/logical/"+monitorId),export,202);
+        awaitJob(exportJob.get("jobId").asString());
+        String savedBackup=exportJob.get("id").asString();
+        assertThat(call(get("/api/backups/logical"),null,200).toString()).contains("SUCCEEDED").doesNotContain(storageSecret,recoveryIdentity);
+        call(post("/api/backups/logical/"+savedBackup+"/restore"),Map.of("instanceName","target","database","restored","owner","restored_owner"),409);
+        call(post("/api/instances/"+monitorId+"/databases"),Map.of("name","still-forbidden"),403);
+
         // --- audit chain is intact and never contains secrets --------------------------------------------------------
         assertThat(call(get("/api/audit/verify"), null, 200).get("intact").asBoolean()).isTrue();
         String audit = call(get("/api/audit?limit=500"), null, 200).toString();
         assertThat(audit).contains("database.create", "role.reveal_password", "auth.step_up")
                 .doesNotContain(ownerPassword, roPassword, rotated, target.getPassword(), containerSecret);
         assertThat(output.getAll()).doesNotContain(ownerPassword, roPassword, rotated, target.getPassword(), totpSecret, token,
-                containerSecret)
+                containerSecret,storageSecret,recoveryIdentity)
                 .doesNotContain("generated security password");
 
         // --- recovery codes can be regenerated (step-up still fresh); the OpenAPI document is published to docs/ ---

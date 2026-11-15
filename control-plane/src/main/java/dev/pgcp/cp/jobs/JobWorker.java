@@ -91,6 +91,10 @@ public class JobWorker {
             ctx.info("finished successfully");
             audit.success("job.finish", "job", job.id(), Map.of("type", job.type()));
         } catch (Exception e) {
+            if (e instanceof InterruptedException || Thread.currentThread().isInterrupted()) {
+                jobs.requeue(job.id());
+                return;
+            }
             String message = describe(e);
             log.warn("job {} ({}) failed: {}", job.id(), job.type(), message, e instanceof ApiException ? null : e);
             ctx.event("ERROR", message);

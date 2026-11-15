@@ -112,6 +112,16 @@ public class InstanceService {
 
     @Transactional
     public CreateResult createManaged(CreateManagedRequest req) {
+        return createManaged(req, null);
+    }
+
+    @Transactional
+    public CreateResult createManagedForRestore(CreateManagedRequest req, UUID restoreOperationId) {
+        if (restoreOperationId == null) throw ApiException.badRequest("restore operation is required");
+        return createManaged(req, restoreOperationId);
+    }
+
+    private CreateResult createManaged(CreateManagedRequest req, UUID restoreOperationId) {
         String name = req.name();
         try {
             AgentApi.requireValidInstanceName(name);
@@ -186,9 +196,9 @@ public class InstanceService {
                 creds.add(issueRole(id, readOnly, ManagedObjects.RoleKind.READ_ONLY));
             }
         }
-        UUID jobId = jobs.submit(CreateManagedInstanceJob.TYPE, instance.resourceKey(), "Create instance " + name,
+        UUID jobId = restoreOperationId == null ? jobs.submit(CreateManagedInstanceJob.TYPE, instance.resourceKey(), "Create instance " + name,
                 new CreateManagedInstanceJob.Params(id, dbName == null ? null
-                        : new CreateManagedInstanceJob.InitialDb(dbName, owner, readOnly)));
+                        : new CreateManagedInstanceJob.InitialDb(dbName, owner, readOnly))) : null;
         audit.success("instance.create", "instance", id, Map.of("name", name, "pgMajor", major, "memoryMb", memoryMb,
                 "exposure", exposure.name(), "initialDatabase", String.valueOf(dbName)));
         return new CreateResult(InstanceView.of(repo.require(id)), jobId, creds);
