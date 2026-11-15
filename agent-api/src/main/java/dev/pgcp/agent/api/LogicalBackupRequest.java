@@ -8,7 +8,7 @@ import java.util.UUID;
 public record LogicalBackupRequest(UUID operationId, Action action, UUID instanceId, String containerName,
         String containerId, int pgMajor, Connection connection, Storage storage, String artifactKey,
         String manifestKey, String sha256, String targetOwner) {
-    public enum Action { BACKUP, RESTORE, TEST_STORAGE }
+    public enum Action { BACKUP, RESTORE, TEST_STORAGE, EXPIRE }
 
     public record Connection(String host, int port, String database, String username, String password,
             String sslMode, String caCertificate) {
@@ -42,6 +42,14 @@ public record LogicalBackupRequest(UUID operationId, Action action, UUID instanc
         AgentApi.requireSupportedMajor(pgMajor);
         storage.validate(allowHttp);
         if (action == Action.TEST_STORAGE) return;
+        if (action == Action.EXPIRE) {
+            String base=storage.prefix()+"/";
+            String name=artifactKey==null?"":artifactKey.substring(Math.min(base.length(),artifactKey.length()));
+            if (!name.matches("[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}\\.dump\\.age")
+                    || !artifactKey.equals(base+name) || !java.util.Objects.equals(manifestKey,base+name.replace(".dump.age",".manifest.age"))
+                    || storage.identity()!=null || connection!=null) throw new IllegalArgumentException("expiration requires one owned UUID artifact pair and no database/recovery credentials");
+            return;
+        }
         new BackupInspectionRequest(containerName, containerId, "logical").validate();
         if (connection == null || !containerName.equals(connection.host()) || connection.port() != 5432
                 || connection.database() == null || connection.database().isEmpty() || connection.database().length() > 63

@@ -107,16 +107,19 @@ request; `GET /v1/logical-backups/{id}` reconciles status/results; `POST
 travel only in the protected request and temporary credential file. See
 [logical backups](runbooks/logical-backups.md) and [ADR 0007](adr/0007-logical-backup-encryption.md).
 
-## Daily logical policies (Phase 2 milestone 3a)
+## Daily logical policies (Phase 2 milestones 3a–3b)
 
 | Method | Path | Behaviour |
 |---|---|---|
 | GET | `/backups/policies` | Credential-free desired settings, revision sync, observed execution and health |
-| POST | `/backups/policies` | Step-up; `{name,instanceId,database,destinationId,containerId,dailyTime,timezone,enabled,runImmediately,maxAgeHours}` → 201 policy with pending sync |
+| POST | `/backups/policies` | Step-up; `{name,instanceId,database,destinationId,containerId,dailyTime,timezone,enabled,runImmediately,maxAgeHours,keepLast?,keepDays?}` → 201 policy with pending sync |
 | PUT | `/backups/policies/{id}` | Step-up; same body; new revision, explicit full-container-ID consent and refreshed credential cache; source database/instance/destination fixed |
 | PUT | `/backups/policies/{id}/enabled` | Step-up; `{enabled}`; pause/resume requested revision; an active run finishes |
 
 `dailyTime` is `HH:mm`; `timezone` is an IANA zone; `maxAgeHours` is 24–8760.
+Omitted/null retention fields default to zero (keep all). Enabled retention needs
+`keepLast` 2–3650 and `keepDays` 1–3650; protections combine. Policy execution
+includes `retentionHealth` (`DISABLED`, `OK`, `ERROR`).
 First-run opt-in applies only to policy creation. The agent owns execution and
 uses one catch-up after downtime. Scheduled results appear in `/backups/logical`
 with a null `jobId`. Health is unknown when observations are stale/unavailable.
@@ -125,9 +128,32 @@ Agent mTLS: `PUT /v1/backup-policies` accepts an export-only credential template
 and increasing revision; its response and `GET /v1/backup-policies` contain status
 only. `GET /v1/backup-policies/events` returns up to 100 durable completion events;
 `DELETE /v1/backup-policies/events/{id}` acknowledges one committed import. No
-arbitrary commands, paths, retention deletion or recovery identity are accepted.
+arbitrary commands, paths, direct retention deletion or recovery identity are accepted.
 See [backup schedules](runbooks/backup-schedules.md) for offline credentials,
 pause semantics, restart guarantees and limits.
+
+Expiration events share the policy outbox. History status can advance to
+`EXPIRING` and `EXPIRED`, which cannot be restored or regress on replay. Restore
+submission first pins a tracked backup on the agent and may return 409 if
+expiration started, even if the panel had stale `SUCCEEDED` evidence. Agent mTLS
+endpoints `POST /v1/backup-retention/pins {backupId,restoreId}` and `POST
+/v1/backup-retention/release {backupId,restoreId,verified}` provide pin/terminal
+acknowledgement. The `EXPIRE` worker action is internal to the retention scheduler;
+the logical worker HTTP submission endpoint rejects it.
+
+## Backup alert journal and Telegram (Phase 2 milestone 3b)
+
+| Method | Path | Behaviour |
+|---|---|---|
+| GET | `/backups/alerts` | Up to 100 active/recent resolved alert conditions; no repeated entries for repeated observations |
+| GET | `/notifications/telegram` | `{enabled,configured,chatId,revision}`; no bot token or secret reference |
+| PUT | `/notifications/telegram` | Step-up; `{enabled,chatId,token?}`; blank/omitted token keeps the stored token; changed settings cancel pending old-revision deliveries |
+| GET | `/notifications/deliveries` | Recent delivery states, attempt counts, due/sent times and generic failure details |
+
+Notifications cover backup failure/freshness, unconfirmed agent status, retention
+failure, and latest manual export/restore failures. Delivery retries are durable,
+ordered per alert, bounded to eight attempts and at least once across the external
+acknowledgement crash window. See [retention and alerts](runbooks/backup-retention-and-alerts.md).
 
 ## Jobs и audit
 | Метод | Путь | Описание |

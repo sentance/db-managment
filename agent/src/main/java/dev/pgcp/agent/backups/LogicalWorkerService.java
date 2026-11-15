@@ -92,7 +92,8 @@ public class LogicalWorkerService {
         if (states.values().stream().anyMatch(d -> d.operation().status() == OperationStatus.RUNNING)) {
             throw AgentException.conflict("another backup worker is active; retry after it finishes");
         }
-        String target = request.action() == LogicalBackupRequest.Action.TEST_STORAGE ? "storage:" + request.instanceId()
+        String target = request.action() == LogicalBackupRequest.Action.EXPIRE ? "artifact:"+request.artifactKey()
+                : request.action() == LogicalBackupRequest.Action.TEST_STORAGE ? "storage:" + request.instanceId()
                 : "instance:" + target(request).name().replaceFirst("^pgcp-inst-", "");
         locks.reserveExternal(request.operationId(), target);
         try {
@@ -109,6 +110,7 @@ public class LogicalWorkerService {
                 case BACKUP -> OperationType.LOGICAL_BACKUP;
                 case RESTORE -> OperationType.LOGICAL_RESTORE;
                 case TEST_STORAGE -> OperationType.TEST_STORAGE;
+                case EXPIRE -> OperationType.EXPIRE_BACKUP;
             };
             var op = new Operation(request.operationId(), type, target, OperationStatus.RUNNING, 0, "preparing worker", null,
                     Instant.now(), null, Map.of());
@@ -163,8 +165,8 @@ public class LogicalWorkerService {
         }
         Path dir = root.resolve(id.toString());
         LogicalBackupRequest req = readRequest(id);
-        if (req.action() != LogicalBackupRequest.Action.TEST_STORAGE) target(req);
-        if (Files.getFileStore(root).getUsableSpace() < 5L * 1024 * 1024 * 1024) throw failure("insufficient staging disk");
+        if (req.action() == LogicalBackupRequest.Action.BACKUP || req.action() == LogicalBackupRequest.Action.RESTORE) target(req);
+        if (req.action() != LogicalBackupRequest.Action.EXPIRE && Files.getFileStore(root).getUsableSpace() < 5L * 1024 * 1024 * 1024) throw failure("insufficient staging disk");
         String image = ensureImage(req.pgMajor());
         List<String> args = new ArrayList<>(List.of(props.dockerCommand(), "create", "--name", d.worker(),
                 "--user", Files.getAttribute(dir,"unix:uid") + ":" + Files.getAttribute(dir,"unix:gid"),
@@ -183,7 +185,7 @@ public class LogicalWorkerService {
                 .readValue(root.resolve(id.toString()).resolve("request.json").toFile());
     }
     private void connectSource(LogicalBackupRequest req, ContainerInfo worker) {
-        if (req.action() != LogicalBackupRequest.Action.TEST_STORAGE) {
+        if (req.action() == LogicalBackupRequest.Action.BACKUP || req.action() == LogicalBackupRequest.Action.RESTORE) {
             ContainerInfo source = target(req);
             // Backup sources choose an existing network; restore targets have exactly their dedicated internal network.
             String network = source.networks().stream().filter(n -> !n.equals("host") && !n.equals("none") && !n.equals("bridge"))

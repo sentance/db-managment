@@ -27,15 +27,20 @@ public class BackupPolicyService {
     private final JsonMapper json;
     private final boolean allowHttp;
     private final Clock clock;
+    private final BackupRetentionService retention;
     private final Map<UUID,State> states = new LinkedHashMap<>();
 
     @Autowired
-    public BackupPolicyService(AgentProperties props, LogicalWorkerService workers, JsonMapper json,
+    public BackupPolicyService(AgentProperties props, LogicalWorkerService workers, JsonMapper json,BackupRetentionService retention,
             @Value("${pgcp.backups.allow-http-storage:false}") boolean allowHttp) throws IOException {
-        this(props.dataDir(), workers, json, allowHttp, Clock.systemUTC());
+        this(props.dataDir(), workers, json, allowHttp, Clock.systemUTC(),retention);
     }
     BackupPolicyService(Path root, LogicalWorkerService workers, JsonMapper json, boolean allowHttp, Clock clock) throws IOException {
+        this(root,workers,json,allowHttp,clock,new BackupRetentionService(root,workers,json,clock));
+    }
+    BackupPolicyService(Path root, LogicalWorkerService workers, JsonMapper json, boolean allowHttp, Clock clock,BackupRetentionService retention) throws IOException {
         this.workers=workers;this.json=json;this.allowHttp=allowHttp;this.clock=clock;
+        this.retention=retention;
         Path protection=root.resolve("protection");
         this.policies=protection.resolve("policies");this.outbox=protection.resolve("outbox");
         for (Path path:List.of(protection,policies,outbox)) {
@@ -82,7 +87,8 @@ public class BackupPolicyService {
                 state.lastSuccessAt()==null ? (clock.instant().isAfter(state.nextRunAt().plusSeconds(7200))?"OVERDUE":"AWAITING_FIRST_BACKUP"):
                 state.lastSuccessAt().plus(Duration.ofHours(state.policy().maxAgeHours())).isBefore(clock.instant())?"STALE":"HEALTHY";
         return new BackupPolicyStatus(state.policy().id(),state.policy().revision(),state.policy().enabled(),
-                state.nextRunAt(),state.active()==null?null:state.active().id(),state.lastRunAt(),state.lastStatus(),state.lastSuccessAt(),health);
+                state.nextRunAt(),state.active()==null?null:state.active().id(),state.lastRunAt(),state.lastStatus(),state.lastSuccessAt(),health,
+                "ERROR".equals(retention.health(state.policy().id()))?"ERROR":state.policy().keepLast()==0?"DISABLED":"OK");
     }
 
     @Scheduled(fixedDelay=5000, initialDelay=3000)
@@ -90,6 +96,10 @@ public class BackupPolicyService {
         for(State state:List.copyOf(states.values())) {
             try { reconcile(state); }
             catch(Exception ignored) { /* Durable state remains pending during Docker/disk outages. Never log credentials. */ }
+        }
+        for(State state:List.copyOf(states.values())) {
+            try { retention.reconcile(state.policy()); }
+            catch(Exception ignored) { /* Preserve pending retention; source backups have priority. */ }
         }
     }
     private void reconcile(State state) throws Exception {
@@ -128,6 +138,7 @@ public class BackupPolicyService {
         UUID eventId=UUID.nameUUIDFromBytes((active.id()+":completed").getBytes(StandardCharsets.UTF_8));
         var event=new BackupPolicyEvent(eventId,state.policy().id(),active.revision(),active.id(),request.instanceId(),
                 active.destinationId(),request.connection().database(),request.containerId(),request.pgMajor(),status,result,startedAt,finishedAt);
+        retention.record(event);
         write(outbox.resolve(eventId+".json"),event); // Persist before clearing active: a crash can only replay this same event.
         boolean currentSource=state.policy().template().containerId().equals(request.containerId());
         save(new State(state.policy(),state.policy().nextAfter(clock.instant()),null,startedAt,currentSource?status:state.lastStatus(),

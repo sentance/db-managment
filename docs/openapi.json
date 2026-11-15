@@ -9,6 +9,50 @@
     "description" : "Generated server url"
   } ],
   "paths" : {
+    "/api/notifications/telegram" : {
+      "get" : {
+        "tags" : [ "notification-controller" ],
+        "operationId" : "settings",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/TelegramView"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put" : {
+        "tags" : [ "notification-controller" ],
+        "operationId" : "save",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/TelegramRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/TelegramView"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/instances/{instanceId}/roles/{role}/lock" : {
       "put" : {
         "tags" : [ "role-controller" ],
@@ -1277,6 +1321,27 @@
         }
       }
     },
+    "/api/notifications/deliveries" : {
+      "get" : {
+        "tags" : [ "notification-controller" ],
+        "operationId" : "deliveries",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/Delivery"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/jobs" : {
       "get" : {
         "tags" : [ "job-controller" ],
@@ -1734,6 +1799,27 @@
         }
       }
     },
+    "/api/backups/alerts" : {
+      "get" : {
+        "tags" : [ "notification-controller" ],
+        "operationId" : "alerts",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/Alert"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/auth/status" : {
       "get" : {
         "tags" : [ "auth-controller" ],
@@ -1812,6 +1898,38 @@
   },
   "components" : {
     "schemas" : {
+      "TelegramRequest" : {
+        "type" : "object",
+        "properties" : {
+          "enabled" : {
+            "type" : "boolean"
+          },
+          "chatId" : {
+            "type" : "string"
+          },
+          "token" : {
+            "type" : "string"
+          }
+        }
+      },
+      "TelegramView" : {
+        "type" : "object",
+        "properties" : {
+          "enabled" : {
+            "type" : "boolean"
+          },
+          "configured" : {
+            "type" : "boolean"
+          },
+          "chatId" : {
+            "type" : "string"
+          },
+          "revision" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
       "LockRequest" : {
         "type" : "object",
         "properties" : {
@@ -2240,6 +2358,14 @@
           "maxAgeHours" : {
             "type" : "integer",
             "format" : "int32"
+          },
+          "keepLast" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "keepDays" : {
+            "type" : "integer",
+            "format" : "int32"
           }
         }
       },
@@ -2277,6 +2403,9 @@
             "format" : "date-time"
           },
           "health" : {
+            "type" : "string"
+          },
+          "retentionHealth" : {
             "type" : "string"
           }
         }
@@ -2334,6 +2463,14 @@
           },
           "health" : {
             "type" : "string"
+          },
+          "keepLast" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "keepDays" : {
+            "type" : "integer",
+            "format" : "int32"
           }
         }
       },
@@ -3062,6 +3199,48 @@
           }
         }
       },
+      "Delivery" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "alertId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "generation" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "configRevision" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "message" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "string"
+          },
+          "attempts" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "nextAttemptAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "sentAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "lastError" : {
+            "type" : "string"
+          }
+        }
+      },
       "Job" : {
         "type" : "object",
         "properties" : {
@@ -3502,6 +3681,44 @@
             "additionalProperties" : { }
           },
           "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }
+      },
+      "Alert" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "kind" : {
+            "type" : "string"
+          },
+          "resourceId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "message" : {
+            "type" : "string"
+          },
+          "active" : {
+            "type" : "boolean"
+          },
+          "generation" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "openedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "changedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "resolvedAt" : {
             "type" : "string",
             "format" : "date-time"
           }

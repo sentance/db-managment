@@ -10,7 +10,7 @@ Self-hosted панель для управления PostgreSQL на собст�
 |---|---|---|
 | Phase 0 | Исследование, архитектура, инвентаризация VPS | ✅ [docs/vps-inventory-tgok.md](docs/vps-inventory-tgok.md) |
 | Phase 1 | Auth + 2FA, managed-инстансы, базы, роли, connection strings, external-инстансы, jobs, audit, мониторинг | ✅ |
-| Phase 2 | pgBackRest, логические бэкапы, S3/R2, расписания, PITR, restore, проверка восстановления, Telegram | in progress — milestones 0–2 and 3a implemented and locally verified; retention, notifications, automatic drills and panel recovery next |
+| Phase 2 | pgBackRest, логические бэкапы, S3/R2, расписания, PITR, restore, проверка восстановления, Telegram | in progress — milestones 0–2, 3a and 3b implemented and locally verified; automatic drills and panel recovery next |
 | Phase 3 | Ветки через pg_dump/pg_restore, TTL | — |
 | Phase 4 | Fast branching через DBLab (нужен ZFS) | — |
 
@@ -20,12 +20,14 @@ prioritising existing project databases on the VPS.
 Implemented so far: existing pgBackRest catalogue inspection, backup history,
 freshness/encryption/WAL observations, explicit source consent, encrypted logical
 backups to S3-compatible storage, verified restore into fresh isolated instances,
-daily agent-owned schedules, durable result delivery and observed schedule health. See
+daily agent-owned schedules, durable result delivery, opt-in owned-backup retention,
+restore pins, observed health, an alert journal and Telegram delivery. See
 [Inspect existing backups](docs/runbooks/existing-backups.md),
 [Backup development and validation](docs/runbooks/backup-development.md),
 [Encrypted logical backup and restore](docs/runbooks/logical-backups.md), and
-[Daily backup schedules](docs/runbooks/backup-schedules.md).
-Retention, notifications, automatic restore drills, panel recovery and physical/PITR restore remain planned.
+[Daily backup schedules](docs/runbooks/backup-schedules.md), and
+[Backup retention and alerts](docs/runbooks/backup-retention-and-alerts.md).
+Automatic restore drills, panel recovery and physical/PITR restore remain planned.
 Catalogue visibility alone does not mean a restore has been verified.
 
 ## Компоненты

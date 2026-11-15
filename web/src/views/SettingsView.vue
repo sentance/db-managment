@@ -4,6 +4,7 @@ import Message from 'primevue/message'
 import Button from 'primevue/button'
 import { useToast } from 'primevue/usetoast'
 import CopyButton from '@/components/CopyButton.vue'
+import TelegramSettings from '@/components/TelegramSettings.vue'
 import { api, errorMessage } from '@/api/client'
 import type { Info } from '@/api/types'
 import { useAuth } from '@/stores/auth'
@@ -61,10 +62,7 @@ onMounted(async () => {
         <h2>Backup storage (S3 / R2)</h2>
         <p class="muted">Encrypted logical backups support your S3-compatible bucket. Configure a destination and save its recovery key on the <RouterLink to="/backups#logical">Backups page</RouterLink>.</p>
       </div>
-      <div class="panel">
-        <h2>Notifications (Telegram)</h2>
-        <p class="muted">Phase 2: alerts for failed or stale backups, WAL archiving interruptions, low disk space and unavailable databases.</p>
-      </div>
+      <TelegramSettings />
     </div>
   </div>
 </template>

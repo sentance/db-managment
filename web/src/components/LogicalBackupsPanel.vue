@@ -13,6 +13,7 @@ import InputNumber from 'primevue/inputnumber'
 import CopyButton from './CopyButton.vue'
 import JobDialog from './JobDialog.vue'
 import StatusTag from './StatusTag.vue'
+import BackupAlertsPanel from './BackupAlertsPanel.vue'
 import { api, errorMessage } from '@/api/client'
 import type { BackupDestination, LogicalBackup, LogicalRestore, Instance, DatabaseView, ServerStatus, DiscoveredContainer } from '@/api/types'
 import { bytes, dateTime } from '@/format'
@@ -23,11 +24,12 @@ const error = ref(''), formError = ref(''), busy = ref(false), jobId = ref<strin
 const mode = ref<'storage' | 'backup' | 'restore' | 'policy' | null>(null), recoveryIdentity = ref<string | null>(null)
 interface Policy {
   id: string; name: string; revision: number; instanceId: string; database: string; destinationId: string; containerId: string
-  dailyTime: string; timezone: string; enabled: boolean; maxAgeHours: number; syncState: string; health: string
-  execution: { enabled: boolean; nextRunAt: string; lastSuccessAt: string | null; activeRunId: string | null } | null
+  dailyTime: string; timezone: string; enabled: boolean; maxAgeHours: number; syncState: string; health: string; keepLast: number; keepDays: number
+  execution: { enabled: boolean; nextRunAt: string; lastSuccessAt: string | null; activeRunId: string | null; retentionHealth: string } | null
 }
 const policies = ref<Policy[]>([]), editingPolicy = ref<string | null>(null)
-const schedule = reactive({ name: '', dailyTime: '02:00', timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC', enabled: true, runImmediately: false, maxAgeHours: 26 })
+const retentionEnabled = ref(false)
+const schedule = reactive({ name: '', dailyTime: '02:00', timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC', enabled: true, runImmediately: false, maxAgeHours: 26, keepLast: 7, keepDays: 30 })
 const healthLabels: Record<string, string> = { UNKNOWN: 'Unknown', SYNC_PENDING: 'Waiting for agent', AWAITING_FIRST_BACKUP: 'Awaiting first backup', OVERDUE: 'Overdue', BACKUP_FAILED: 'Backup failed', STALE: 'Backup is stale', HEALTHY: 'Healthy', PAUSED: 'Paused' }
 const syncLabels: Record<string, string> = { PENDING: 'Pending', APPLIED: 'Confirmed', UNCONFIRMED: 'Unconfirmed' }
 const destination = reactive({ name: '', endpoint: '', region: 'auto', bucket: '', accessKey: '', secretKey: '' })
@@ -47,6 +49,7 @@ function open(next: typeof mode.value) { mode.value = next; formError.value = ''
 async function editPolicy(policy?: Policy) {
   editingPolicy.value = policy?.id ?? null
   Object.assign(schedule, { name: policy?.name ?? '', dailyTime: policy?.dailyTime ?? '02:00', timezone: policy?.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone ?? 'UTC', enabled: policy?.enabled ?? true, runImmediately: false, maxAgeHours: policy?.maxAgeHours ?? 26 })
+  retentionEnabled.value = (policy?.keepLast ?? 0) > 0; schedule.keepLast = policy?.keepLast || 7; schedule.keepDays = policy?.keepDays || 30
   sourceId.value = policy?.instanceId ?? null; destinationId.value = policy?.destinationId ?? null
   database.value = null; databases.value = []; container.value = null; open('policy')
   if (policy) { await selectSource(); database.value = policy.database }
@@ -84,7 +87,7 @@ async function submit() {
     } else if (mode.value === 'backup') {
       jobId.value = (await api.post<{ jobId: string }>(`/api/backups/logical/${sourceId.value}`, { database: database.value, destinationId: destinationId.value, containerId: container.value?.id })).jobId
     } else if (mode.value === 'policy') {
-      const body = { ...schedule, instanceId: sourceId.value, database: database.value, destinationId: destinationId.value, containerId: container.value?.id }
+      const body = { ...schedule, keepLast: retentionEnabled.value ? schedule.keepLast : 0, keepDays: retentionEnabled.value ? schedule.keepDays : 0, instanceId: sourceId.value, database: database.value, destinationId: destinationId.value, containerId: container.value?.id }
       if (editingPolicy.value) await api.put(`/api/backups/policies/${editingPolicy.value}`, body)
       else await api.post('/api/backups/policies', body)
     } else {
@@ -105,6 +108,7 @@ onUnmounted(() => { clearInterval(timer); recoveryIdentity.value = null })
 <template>
   <div id="logical">
     <Message v-if="error" severity="error">{{ error }}</Message>
+    <BackupAlertsPanel v-if="!restoreOnly" />
     <div v-if="!restoreOnly" class="panel">
       <div class="page-header"><h2>Encrypted database backups</h2><div class="actions"><Button label="Add storage" outlined size="small" @click="open('storage')" /><Button label="Back up a database" size="small" :disabled="!verified.length" @click="open('backup')" /></div></div>
       <p class="muted">Exports are encrypted before upload to your S3-compatible storage.</p>
@@ -112,13 +116,14 @@ onUnmounted(() => { clearInterval(timer); recoveryIdentity.value = null })
     </div>
     <div v-if="!restoreOnly" class="panel">
       <div class="page-header"><h2>Daily backup schedules</h2><Button label="Schedule backups" size="small" :disabled="!verified.length" @click="editPolicy()" /></div>
-      <p class="muted">Schedules run on the agent while the panel is offline. Pausing takes effect when the agent confirms it; an active backup finishes. Saved backups are kept until retention is configured in a later release.</p>
+      <p class="muted">Schedules and enabled retention run on the agent while the panel is offline. Pausing takes effect when the agent confirms it. An active backup or deletion finishes.</p>
       <DataTable :value="policies" size="small" data-key="id">
         <Column field="name" header="Policy" /><Column field="database" header="Database" />
         <Column header="Daily time"><template #body="{ data }">{{ data.dailyTime }} · {{ data.timezone }}</template></Column>
         <Column header="Agent sync"><template #body="{ data }">{{ syncLabels[data.syncState] ?? data.syncState }}</template></Column><Column header="Health"><template #body="{ data }">{{ healthLabels[data.health] ?? data.health }}<span v-if="data.execution?.activeRunId"> · Run in progress</span></template></Column>
         <Column header="Next run"><template #body="{ data }">{{ data.execution?.enabled ? dateTime(data.execution.nextRunAt) : 'Paused or pending' }}</template></Column>
         <Column header="Last successful backup"><template #body="{ data }">{{ data.execution?.lastSuccessAt ? dateTime(data.execution.lastSuccessAt) : 'None confirmed' }}</template></Column>
+        <Column header="Retention"><template #body="{ data }">{{ data.keepLast ? `Keep ${data.keepLast} and ${data.keepDays} days` : 'Keep all' }}<span v-if="data.execution?.retentionHealth === 'ERROR'"> · Cleanup failed</span></template></Column>
         <Column header=""><template #body="{ data }"><div class="actions"><Button :label="data.enabled ? 'Pause' : 'Resume'" text size="small" @click="togglePolicy(data)" /><Button label="Edit / refresh access" text size="small" @click="editPolicy(data)" /></div></template></Column>
         <template #empty>No schedules. Add one to allow recurring database exports.</template>
       </DataTable>
@@ -148,6 +153,9 @@ onUnmounted(() => { clearInterval(timer); recoveryIdentity.value = null })
             <div class="field"><label>Policy name</label><InputText v-model="schedule.name" required maxlength="100" /></div>
             <div class="field-row"><div class="field"><label>Daily time</label><InputText v-model="schedule.dailyTime" type="time" required /></div><div class="field"><label>Timezone</label><InputText v-model="schedule.timezone" required placeholder="Europe/Prague" /></div></div>
             <div class="field"><label>Report stale after (hours)</label><InputNumber v-model="schedule.maxAgeHours" :min="24" :max="8760" :use-grouping="false" /></div>
+            <label><Checkbox v-model="retentionEnabled" binary /> Automatically expire older backups from this schedule</label>
+            <div v-if="retentionEnabled" class="field-row"><div class="field"><label>Keep at least this many backups</label><InputNumber v-model="schedule.keepLast" :min="2" :max="3650" :use-grouping="false" /></div><div class="field"><label>Keep all backups younger than (days)</label><InputNumber v-model="schedule.keepDays" :min="1" :max="3650" :use-grouping="false" /></div></div>
+            <p v-if="retentionEnabled" class="muted">The latest verified recovery point and backups reserved by restores are also protected. Manual exports and existing external repositories keep their current retention.</p>
             <label><Checkbox v-model="schedule.enabled" binary /> Enable recurring exports</label>
             <label v-if="!editingPolicy"><Checkbox v-model="schedule.runImmediately" binary /> Also run once when the agent receives this policy</label>
             <p class="muted">Saving refreshes the cached source and storage credentials. Container replacement requires reviewing the newly discovered source. Recovery keys stay in the panel.</p>

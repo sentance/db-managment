@@ -1,8 +1,9 @@
 # Daily logical backup schedules
 
-Milestone 3a adds agent-owned daily exports and in-panel health. Retention,
-notification delivery, automatic restore drills and panel disaster recovery are
-the remaining parts of milestone 3. This release keeps all saved backup objects.
+Milestone 3a adds agent-owned daily exports and in-panel health. Milestone 3b adds
+opt-in retention and Telegram alert delivery; see
+[retention and alerts](backup-retention-and-alerts.md). Automatic restore drills
+and panel disaster recovery are the remaining parts of milestone 3.
 Existing external pgBackRest schedules and retention remain with their owner.
 
 ## Create and manage a policy
@@ -85,9 +86,10 @@ restart deduplication. Losing that data is a disaster recovery case, not a norma
 restart. Recovering an old CP snapshot can also require reviewing policy revisions
 before resuming scheduling.
 
-Health states are currently visible in the panel only. There is no Telegram
-delivery or automatic expiration in this checkpoint. Monitor storage usage and
-continue the existing backup system until provider testing and rollout are done.
+Health conditions also feed the persistent alert journal and optional Telegram
+delivery. A policy's retention is disabled by default; enabled retention can run
+while CP is offline. Continue the existing backup system until provider testing
+and rollout are done.
 
 ## Development evidence
 

@@ -13,7 +13,11 @@ artifacts, restart reconciliation, isolated restore and sequence/row checks. A
 separate assembled test uses fresh application containers and a fresh administrator
 to exercise the real HTTP and mTLS paths end to end. It also saves a daily policy,
 stops the panel before its due time, restarts the agent, verifies an offline export,
-then restarts both services and checks one imported result and outbox acknowledgement:
+then restarts both services and checks one imported result and outbox acknowledgement.
+It also restores a tracked scheduled backup, checks durable pin/release, seeds
+explicitly aged ciphertext copies, runs retention with CP stopped, and checks
+expiration replay while preserving manual exports. Telegram transport tests use
+a local HTTP stub; application tests mock the transport. Run:
 
 ```bash
 python3 deploy/logical-smoke-test.py

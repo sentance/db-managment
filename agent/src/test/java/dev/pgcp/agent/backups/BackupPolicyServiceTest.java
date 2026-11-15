@@ -84,6 +84,14 @@ class BackupPolicyServiceTest {
         assertThat(p.nextAfter(Instant.parse("2026-10-24T22:00:00Z"))).isEqualTo(Instant.parse("2026-10-25T00:30:00Z"));
         assertThat(p.nextAfter(Instant.parse("2026-10-25T00:30:00Z"))).isEqualTo(Instant.parse("2026-10-26T01:30:00Z"));
     }
+    @Test void oldPolicyFilesDefaultToKeepingAllArtifacts() {
+        var tree=json.valueToTree(policy(1,true,"password"));
+        ((tools.jackson.databind.node.ObjectNode)tree).remove("keepLast");
+        ((tools.jackson.databind.node.ObjectNode)tree).remove("keepDays");
+        var loaded=json.treeToValue(tree,BackupPolicy.class);
+        assertThat(loaded.keepLast()).isZero();assertThat(loaded.keepDays()).isZero();
+        loaded.validate(false);
+    }
     @Test void delayedResultConsumptionDoesNotMakeAnOldSnapshotFresh() throws Exception {
         worker();var service=service();service.put(policy(1,true,"password"));service.tick();
         UUID run=service.statuses().getFirst().activeRunId();Instant started=clock.instant();finish(run);

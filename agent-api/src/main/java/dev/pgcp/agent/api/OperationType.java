@@ -7,5 +7,6 @@ public enum OperationType {
     DELETE_INSTANCE,
     LOGICAL_BACKUP,
     LOGICAL_RESTORE,
-    TEST_STORAGE
+    TEST_STORAGE,
+    EXPIRE_BACKUP
 }

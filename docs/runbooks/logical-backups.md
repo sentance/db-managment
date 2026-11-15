@@ -3,7 +3,8 @@
 This feature provides on-demand and opt-in daily database backups. Existing external PostgreSQL
 configuration, pgBackRest repositories and their schedules remain unchanged.
 See [daily schedules](backup-schedules.md) for agent-owned execution during panel
-outages. Remote objects are not yet expired automatically.
+outages and [opt-in retention](backup-retention-and-alerts.md). Manual exports
+retain their existing lifecycle and are not expired by scheduled-backup retention.
 
 ## Storage and recovery key
 
@@ -90,7 +91,8 @@ a recovered instance is a separate operator action, not an automatic cutover.
   non-resumable exports require a new backup request, rather than an implicit duplicate.
 - Lifecycle operations share the same per-instance agent lock. Timeouts stop the
   owned worker before releasing that lock. Ciphertext from a hard host failure
-  can remain orphaned remotely; remote retention/garbage collection is a later milestone.
+  can remain orphaned remotely. Scheduled-backup retention only deletes recorded
+  successful artifact pairs; unrecorded partial artifacts still require operator review.
 
 The worker image is built on first use for each PostgreSQL major. Its tag includes
 the worker context hash, and tool versions are recorded in each manifest. First

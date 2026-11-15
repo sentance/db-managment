@@ -86,6 +86,7 @@ class ControlPlaneIT {
         r.add("pgcp.health-interval", () -> "1h");
         r.add("pgcp.backups.initial-delay", () -> "1h");
         r.add("pgcp.protection.initial-delay", () -> "1h");
+        r.add("pgcp.notifications.initial-delay", () -> "1h");
         r.add("server.servlet.session.cookie.secure", () -> "false");
         for (String k : new String[] { "PGCP_AGENT_CLIENT_CERT", "PGCP_AGENT_CA" }) {
             r.add(k, () -> "classpath:tls/test-cert.pem");
@@ -96,6 +97,9 @@ class ControlPlaneIT {
     @MockitoBean
     AgentClient agent;
 
+    @MockitoBean
+    dev.pgcp.cp.notifications.TelegramTransport telegramTransport;
+
     @Autowired
     MockMvc mvc;
 
@@ -104,6 +108,14 @@ class ControlPlaneIT {
 
     @Autowired
     dev.pgcp.cp.backups.BackupPolicyService policies;
+
+    @Autowired dev.pgcp.cp.notifications.NotificationRepository notifications;
+    @Autowired dev.pgcp.cp.notifications.TelegramService telegram;
+    @Autowired dev.pgcp.cp.notifications.BackupAlertCoordinator alertCoordinator;
+    @Autowired dev.pgcp.cp.backups.BackupPolicyRepository policyRepo;
+    @Autowired org.springframework.jdbc.core.simple.JdbcClient jdbcClient;
+    @Autowired dev.pgcp.cp.backups.LogicalRepository logicalRepo;
+    @Autowired dev.pgcp.cp.backups.LogicalJobs.Restore restoreHandler;
 
     MockHttpSession session = new MockHttpSession();
 
@@ -316,13 +328,82 @@ class ControlPlaneIT {
         assertThat(call(get("/api/backups/policies"),null,200).toString()).contains("UNKNOWN","UNCONFIRMED")
                 .doesNotContain("secret-agent-diagnostic");
 
+        // Expiration results can arrive before the original completion, without resurrecting deleted artifacts.
+        java.util.UUID expiredId=java.util.UUID.randomUUID();
+        for(String state:java.util.List.of("EXPIRED","SUCCEEDED","EXPIRING")) {
+            policyRepo.ingest(new dev.pgcp.agent.api.BackupPolicyEvent(java.util.UUID.randomUUID(),java.util.UUID.fromString(policyId),1,expiredId,
+                    java.util.UUID.fromString(monitorId),java.util.UUID.fromString(destinationId),"postgres",backupContainerId,18,state,
+                    Map.of("sha256","a".repeat(64)),Instant.now(),Instant.now()));
+        }
+        assertThat(jdbcClient.sql("select status from logical_backup where id=?").param(expiredId).query(String.class).single()).isEqualTo("EXPIRED");
+        call(post("/api/backups/logical/"+expiredId+"/restore"),Map.of("instanceName","expired-target","database","restored","owner","restored_owner"),400);
+        org.mockito.Mockito.doThrow(dev.pgcp.cp.common.ApiException.conflict("backup expiration has started"))
+                .when(agent).pinBackup(org.mockito.ArgumentMatchers.eq(java.util.UUID.fromString(savedBackup)),org.mockito.ArgumentMatchers.any());
+        call(post("/api/backups/logical/"+savedBackup+"/restore"),Map.of("instanceName","pin-race-target","database","restored","owner","restored_owner"),409);
+        assertThat(jdbcClient.sql("select count(*) from logical_restore where target_name='pin-race-target'").query(Integer.class).single()).isZero();
+        var failedRestore=java.util.UUID.randomUUID();
+        logicalRepo.insertRestore(failedRestore,java.util.UUID.fromString(savedBackup),"failed-fixture-restore","restored","restored_owner");
+        var failedContext=org.mockito.Mockito.mock(dev.pgcp.cp.jobs.JobContext.class);
+        org.mockito.Mockito.when(failedContext.params(dev.pgcp.cp.backups.LogicalBackupService.ItemParams.class))
+                .thenReturn(new dev.pgcp.cp.backups.LogicalBackupService.ItemParams(failedRestore));
+        restoreHandler.onFailure(failedContext,new IllegalStateException("private-restore-diagnostic"));
+        alertCoordinator.reconcile();
+        assertThat(notifications.alerts().stream().anyMatch(a->a.kind().equals("RESTORE_FAILED")&&a.active())).isTrue();
+        var laterRestore=java.util.UUID.randomUUID();
+        logicalRepo.insertRestore(laterRestore,java.util.UUID.fromString(savedBackup),"verified-fixture-restore","restored","restored_owner");
+        logicalRepo.restoreStatus(laterRestore,"SUCCEEDED",Map.of("verified","true"));alertCoordinator.reconcile();
+        assertThat(notifications.alerts().stream().anyMatch(a->a.kind().equals("RESTORE_FAILED")&&!a.active())).isTrue();
+
+        // Telegram configuration remains encrypted/redacted; delivery retries preserve alert/recovery ordering.
+        String botToken="123456789:TelegramPrivateTokenMustNeverAppear42";
+        var telegramRequest=Map.of("enabled",true,"chatId","-100123456789","token",botToken);
+        session.removeAttribute("pgcp.stepUpUntil");call(put("/api/notifications/telegram"),telegramRequest,403);
+        session.setAttribute("pgcp.stepUpUntil",unlocked);
+        assertThat(call(put("/api/notifications/telegram"),telegramRequest,200).toString()).contains("configured").doesNotContain(botToken,"tokenSecretId");
+        assertThat(call(get("/api/notifications/telegram"),null,200).toString()).doesNotContain(botToken);
+        alertCoordinator.reconcile();alertCoordinator.reconcile();
+        assertThat(notifications.alerts().stream().filter(a->a.kind().equals("AGENT_UNREACHABLE")&&a.active()).count()).isEqualTo(1);
+        // Leave the policy alert journal, but isolate delivery ordering below.
+        jdbcClient.sql("update notification_delivery set status='CANCELLED'").update();
+        var resource=java.util.UUID.randomUUID();
+        notifications.condition("test-retry","BACKUP_FAILED",resource,true,"Scheduled backup failed","Backup succeeded");
+        notifications.condition("test-retry","BACKUP_FAILED",resource,true,"Scheduled backup failed","Backup succeeded");
+        notifications.condition("test-retry","BACKUP_FAILED",resource,false,"Scheduled backup failed","Backup succeeded");
+        assertThat(notifications.deliveries().stream().filter(d->d.status().equals("PENDING")).count()).isEqualTo(2);
+        org.mockito.Mockito.when(telegramTransport.send(org.mockito.ArgumentMatchers.anyString(),org.mockito.ArgumentMatchers.anyString(),org.mockito.ArgumentMatchers.anyString()))
+                .thenReturn(new dev.pgcp.cp.notifications.TelegramTransport.Outcome(false,120),new dev.pgcp.cp.notifications.TelegramTransport.Outcome(true,0));
+        telegram.deliver();
+        org.mockito.Mockito.verify(telegramTransport,org.mockito.Mockito.times(1)).send(org.mockito.ArgumentMatchers.eq(botToken),org.mockito.ArgumentMatchers.eq("-100123456789"),org.mockito.ArgumentMatchers.anyString());
+        var retry=notifications.deliveries().stream().filter(d->d.attempts()==1).findFirst().orElseThrow();
+        assertThat(retry.status()).isEqualTo("PENDING");assertThat(retry.nextAttemptAt()).isAfter(Instant.now().plusSeconds(110));
+        jdbcClient.sql("update notification_delivery set next_attempt_at=now() where status='PENDING'").update();
+        telegram.deliver();assertThat(notifications.deliveries().stream().filter(d->d.status().equals("SENT")).count()).isEqualTo(2);
+        notifications.condition("test-restart","STALE",resource,true,"Backup is stale","Fresh backup received");
+        var claimed=notifications.claim(Instant.now()).orElseThrow();
+        jdbcClient.sql("update notification_delivery set claimed_at=now()-interval '3 minutes' where id=?").param(claimed.id()).update();
+        telegram.deliver();
+        assertThat(notifications.deliveries().stream().filter(d->d.id().equals(claimed.id())).findFirst().orElseThrow().attempts()).isEqualTo(2);
+        notifications.condition("test-exhaust","STALE",resource,true,"Backup is stale","Fresh backup received");
+        org.mockito.Mockito.doReturn(new dev.pgcp.cp.notifications.TelegramTransport.Outcome(false,0)).when(telegramTransport)
+                .send(org.mockito.ArgumentMatchers.anyString(),org.mockito.ArgumentMatchers.anyString(),org.mockito.ArgumentMatchers.anyString());
+        for(int attempt=0;attempt<8;attempt++) {
+            jdbcClient.sql("update notification_delivery set next_attempt_at=now() where status='PENDING'").update();telegram.deliver();
+        }
+        assertThat(notifications.deliveries().stream().anyMatch(d->d.status().equals("FAILED")&&d.attempts()==8)).isTrue();
+        notifications.condition("test-disable","STALE",resource,true,"Backup is stale","Fresh backup received");
+        call(put("/api/notifications/telegram"),Map.of("enabled",true,"chatId","-100123456789","token",""),200);
+        assertThat(notifications.deliveries().stream().filter(d->d.status().equals("PENDING")).count()).isEqualTo(1);
+        call(put("/api/notifications/telegram"),Map.of("enabled",false,"chatId","-100123456789","token",""),200);
+        assertThat(notifications.deliveries().stream().filter(d->d.status().equals("PENDING")).count()).isZero();
+        assertThat(call(get("/api/notifications/deliveries"),null,200).toString()).doesNotContain(botToken);
+
         // --- audit chain is intact and never contains secrets --------------------------------------------------------
         assertThat(call(get("/api/audit/verify"), null, 200).get("intact").asBoolean()).isTrue();
         String audit = call(get("/api/audit?limit=500"), null, 200).toString();
         assertThat(audit).contains("database.create", "role.reveal_password", "auth.step_up")
                 .doesNotContain(ownerPassword, roPassword, rotated, target.getPassword(), containerSecret);
         assertThat(output.getAll()).doesNotContain(ownerPassword, roPassword, rotated, target.getPassword(), totpSecret, token,
-                containerSecret,storageSecret,recoveryIdentity)
+                containerSecret,storageSecret,recoveryIdentity,botToken)
                 .doesNotContain("generated security password");
 
         // --- recovery codes can be regenerated (step-up still fresh); the OpenAPI document is published to docs/ ---

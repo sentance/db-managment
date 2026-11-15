@@ -116,6 +116,23 @@ class LogicalBackupDockerIT {
                         request.instanceId(), source.name(), source.id(), pgMajor, connection, storage,
                         saved.result().get("artifactKey"), saved.result().get("manifestKey"), saved.result().get("sha256"), "restored_owner")))
                         .isInstanceOf(AgentException.class).hasMessageContaining("fresh isolated");
+                // Expire one exact pair through the real worker; a second artifact in the same prefix survives.
+                UUID preserved=UUID.randomUUID();
+                for(String suffix:List.of(".dump.age",".manifest.age")) {
+                    run(List.of("docker","run","--rm","--network",network,"-e","AWS_ACCESS_KEY_ID=test","-e","AWS_SECRET_ACCESS_KEY=test",
+                            "-e","AWS_DEFAULT_REGION=us-east-1","--entrypoint","aws",image,"--endpoint-url","http://storage:5000","s3","cp",
+                            "s3://pgcp-test/pgcp/fixture/"+backupId+suffix,"s3://pgcp-test/pgcp/fixture/"+preserved+suffix));
+                }
+                var deleteStorage=new LogicalBackupRequest.Storage(storage.endpoint(),storage.region(),storage.bucket(),storage.prefix(),
+                        storage.accessKey(),storage.secretKey(),storage.recipient(),null);
+                for(int attempt=0;attempt<2;attempt++) {
+                    await(workers,workers.start(new LogicalBackupRequest(UUID.randomUUID(),LogicalBackupRequest.Action.EXPIRE,request.instanceId(),
+                            null,null,major,null,deleteStorage,saved.result().get("artifactKey"),saved.result().get("manifestKey"),null,null)));
+                }
+                String remaining=run(List.of("docker","run","--rm","--network",network,"-e","AWS_ACCESS_KEY_ID=test","-e","AWS_SECRET_ACCESS_KEY=test",
+                        "-e","AWS_DEFAULT_REGION=us-east-1","--entrypoint","aws",image,"--endpoint-url","http://storage:5000","s3api","list-objects-v2",
+                        "--bucket","pgcp-test","--prefix","pgcp/fixture/","--query","Contents[].Key","--output","text"));
+                assertThat(remaining).contains(preserved+".dump.age",preserved+".manifest.age").doesNotContain(backupId.toString());
             } finally {
                 if (workers != null) workers.shutdown();
                 if (instances != null && docker.inspect(AgentApi.containerName(name)).isPresent()) {

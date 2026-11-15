@@ -89,6 +89,12 @@ public class AgentClient {
     public void acknowledgeBackupEvent(UUID id) {
         call(() -> { rest.delete().uri("/backup-policies/events/{id}",id).retrieve().toBodilessEntity();return null; });
     }
+    public void pinBackup(UUID backup,UUID restore) {
+        call(()->rest.post().uri("/backup-retention/pins").body(java.util.Map.of("backupId",backup,"restoreId",restore)).retrieve().toBodilessEntity());
+    }
+    public void releaseBackup(UUID backup,UUID restore,boolean verified) {
+        call(()->rest.post().uri("/backup-retention/release").body(java.util.Map.of("backupId",backup,"restoreId",restore,"verified",verified)).retrieve().toBodilessEntity());
+    }
 
     public Operation logical(LogicalBackupRequest request, JobContext ctx) throws InterruptedException {
         Instant deadline = Instant.now().plus(Duration.ofHours(2));

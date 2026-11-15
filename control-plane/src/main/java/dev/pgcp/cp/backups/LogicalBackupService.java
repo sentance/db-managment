@@ -122,6 +122,7 @@ public class LogicalBackupService {
         if (instances.nameTaken(request.instanceName())) throw ApiException.conflict("restore requires a new instance name");
         UUID id=UUID.randomUUID();
         repo.insertRestore(id,backupId,request.instanceName(),request.database(),request.owner());
+        agent.pinBackup(backupId,id); // Atomic agent-side exclusion before a restore is queued or begins provisioning.
         UUID job=jobs.submit("backup.restore","restore-name:"+request.instanceName(),"Restore backup into "+request.instanceName(),new ItemParams(id));
         repo.restoreJob(id,job);
         return new Submitted(id,job);

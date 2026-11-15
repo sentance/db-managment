@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Exercise the assembled application with fresh admin, PostgreSQL and S3 fixtures only."""
 import base64
+import copy
+from datetime import datetime, timedelta, timezone
 import hashlib
 import hmac
 import http.cookiejar
@@ -161,15 +163,15 @@ secrets:
                 if payload.get('code') == 'STEP_UP_REQUIRED':
                     api('POST', '/api/auth/step-up', {'code': code()})
                     return api(method, path, body)
-                raise RuntimeError('API failed: ' + method + ' ' + path + ' (' + str(error.code) + ')') from None
+                raise RuntimeError('API failed: ' + method + ' ' + path + ' (' + str(error.code) + ', ' + str(payload.get('code')) + ')') from None
 
-        def await_job(job):
+        def await_job(job, expected='SUCCEEDED'):
             deadline = time.monotonic() + 1200
             while time.monotonic() < deadline:
                 state = api('GET', '/api/jobs/' + job)['job']
-                if state['status'] == 'SUCCEEDED':
+                if state['status'] == expected:
                     return state
-                if state['status'] == 'FAILED':
+                if state['status'] in ('SUCCEEDED', 'FAILED'):
                     raise RuntimeError('Job failed: ' + state['type'] + ': ' + str(state.get('error')))
                 time.sleep(1)
             raise RuntimeError('Job deadline exceeded')
@@ -198,7 +200,7 @@ secrets:
         daily_time = time.strftime('%H:%M', time.gmtime(time.time() + 120))
         policy = api('POST', '/api/backups/policies', {'name': 'Offline schedule', 'instanceId': instance['id'], 'database': 'fixture',
             'destinationId': destination['id'], 'containerId': source, 'dailyTime': daily_time, 'timezone': 'UTC',
-            'enabled': True, 'runImmediately': False, 'maxAgeHours': 26})
+            'enabled': True, 'runImmediately': False, 'maxAgeHours': 26, 'keepLast': 2, 'keepDays': 1})
         deadline = time.monotonic() + 60
         while time.monotonic() < deadline:
             saved = next(p for p in api('GET', '/api/backups/policies') if p['id'] == policy['id'])
@@ -249,11 +251,13 @@ secrets:
             time.sleep(1)
         else:
             raise RuntimeError('Panel did not acknowledge the imported result')
-        api('PUT', '/api/backups/policies/' + policy['id'] + '/enabled', {'enabled': False})
         run('docker', 'exec', '-u', 'postgres', source, 'psql', '-X', '-d', 'fixture', '-c', "insert into orders(description) values ('after backup')")
         print('Restoring through application API and verifying isolation', flush=True)
-        restored = api('POST', '/api/backups/logical/' + backup['id'] + '/restore', {'instanceName': target_name, 'database': 'restored', 'owner': 'restored_owner'})
+        restored = api('POST', '/api/backups/logical/' + event['backupId'] + '/restore', {'instanceName': target_name, 'database': 'restored', 'owner': 'restored_owner'})
         target_operation = restored['id']
+        retention_path = str(work / 'runtime' / 'protection' / 'retention')
+        pinned = json.loads(run('docker', 'exec', agent, 'cat', retention_path + '/' + event['backupId'] + '.json'))
+        assert restored['id'] in pinned['pins'], 'A queued restore must hold a durable backup pin'
         await_job(restored['jobId'])
         record = next(r for r in api('GET', '/api/backups/restores') if r['id'] == restored['id'])
         target_id = record['targetInstanceId']
@@ -262,8 +266,98 @@ secrets:
         assert run('docker', 'exec', '-u', 'postgres', target, 'psql', '-X', '-d', 'restored', '-Atc', "select count(*),nextval('orders_id_seq') from orders") == '3|4'
         networks = json.loads(run('docker', 'inspect', '--format', '{{json .NetworkSettings.Networks}}', target))
         assert list(networks) == ['pgcp-restore-' + restored['id']]
+        deadline = time.monotonic() + 45
+        while time.monotonic() < deadline:
+            verified = json.loads(run('docker', 'exec', agent, 'cat', retention_path + '/' + event['backupId'] + '.json'))
+            if verified['verifiedAt'] and not verified['pins']:
+                break
+            time.sleep(1)
+        else:
+            raise RuntimeError('Verified restore did not release its durable retention pin')
         await_job(api('POST', '/api/instances/' + target_id + '/delete', {'confirmName': target_name, 'deleteVolume': True})['jobId'])
-        print('ASSEMBLED LOGICAL BACKUP/RESTORE AND OFFLINE SCHEDULE SMOKE TEST PASSED', flush=True)
+        print('Testing offline retention with explicitly aged disposable artifact copies', flush=True)
+        # Simulate days of history without changing any production clock or waiting several days.
+        # Only this test's ciphertext pairs, registry and outbox are seeded; the real scheduled backup remains verified.
+        run(*compose, 'stop', 'control-plane', 'agent')
+        aged = []
+        for days in (2, 3, 4):
+            seeded = copy.deepcopy(verified)
+            seeded_id = str(uuid.uuid4())
+            seeded_event = seeded['backup']
+            seeded_event['id'] = str(uuid.uuid4())
+            seeded_event['backupId'] = seeded_id
+            instant = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat().replace('+00:00', 'Z')
+            seeded_event['startedAt'] = seeded_event['finishedAt'] = instant
+            seeded['pins'] = []; seeded['verifiedAt'] = None
+            for key, suffix in (('artifactKey', '.dump.age'), ('manifestKey', '.manifest.age')):
+                source_key = seeded_event['result'][key]
+                seeded_event['result'][key] = destination['prefix'] + '/' + seeded_id + suffix
+                run('docker', 'run', '--rm', '--network', project + '_default', '-e', 'AWS_ACCESS_KEY_ID=test', '-e', 'AWS_SECRET_ACCESS_KEY=test',
+                    '-e', 'AWS_DEFAULT_REGION=us-east-1', '--entrypoint', 'aws', image, '--endpoint-url', 'http://storage:5000', 's3', 'cp',
+                    's3://pgcp-smoke/' + source_key, 's3://pgcp-smoke/' + seeded_event['result'][key], '--only-show-errors')
+            for filename, value, target_dir in ((seeded_id + '.json', seeded, 'retention'), (seeded_event['id'] + '.json', seeded_event, 'outbox')):
+                file = work / filename; file.write_text(json.dumps(value)); file.chmod(0o600)
+                run('docker', 'run', '--rm', '--network', 'none', '--mount', 'type=bind,src=' + str(work) + ',dst=/fixture',
+                    '--entrypoint', 'cp', 'docker:29-cli', '/fixture/' + filename, '/fixture/runtime/protection/' + target_dir + '/' + filename)
+            aged.append(seeded_id)
+        run(*compose, 'up', '-d', '--wait', '--wait-timeout', '120', 'agent')
+        deadline = time.monotonic() + 120
+        while time.monotonic() < deadline:
+            states = [json.loads(run('docker', 'exec', agent, 'cat', retention_path + '/' + item + '.json'))['status'] for item in aged]
+            if states == ['AVAILABLE', 'EXPIRED', 'EXPIRED']:
+                break
+            time.sleep(2)
+        else:
+            raise RuntimeError('Offline retention did not preserve newest points and expire older owned pairs')
+        remaining = json.loads(run('docker', 'run', '--rm', '--network', project + '_default', '-e', 'AWS_ACCESS_KEY_ID=test', '-e', 'AWS_SECRET_ACCESS_KEY=test',
+            '-e', 'AWS_DEFAULT_REGION=us-east-1', '--entrypoint', 'aws', image, '--endpoint-url', 'http://storage:5000', 's3api', 'list-objects-v2',
+            '--bucket', 'pgcp-smoke', '--prefix', destination['prefix'] + '/'))['Contents']
+        keys = {item['Key'] for item in remaining}
+        for item in (backup['id'], event['backupId'], aged[0]):
+            assert destination['prefix'] + '/' + item + '.dump.age' in keys
+        for item in aged[1:]:
+            assert not any(item in key for key in keys)
+        run(*compose, 'up', '-d', '--wait', '--wait-timeout', '120', 'control-plane')
+        api('GET', '/api/auth/status')
+        api('POST', '/api/auth/login', {'username': 'smoke', 'password': admin_password, 'code': code()})
+        deadline = time.monotonic() + 60
+        while time.monotonic() < deadline:
+            history = {b['id']: b['status'] for b in api('GET', '/api/backups/logical')}
+            if all(history.get(item) == 'EXPIRED' for item in aged[1:]):
+                break
+            time.sleep(1)
+        else:
+            raise RuntimeError('Panel did not reconcile expiration results after its outage')
+        assert history[backup['id']] == 'SUCCEEDED', 'Manual backups must retain their existing lifecycle'
+        api('PUT', '/api/backups/policies/' + policy['id'] + '/enabled', {'enabled': False})
+        print('Verifying real failed-upload alert and subsequent recovery', flush=True)
+        storage_container = run(*compose, 'ps', '-q', 'storage')
+        run('docker', 'network', 'disconnect', project + '_default', storage_container)
+        try:
+            failed = api('POST', '/api/backups/logical/' + instance['id'], {'database': 'fixture', 'destinationId': destination['id'], 'containerId': source})
+            await_job(failed['jobId'], 'FAILED')
+        finally:
+            run('docker', 'network', 'connect', '--alias', 'storage', project + '_default', storage_container)
+        deadline = time.monotonic() + 45
+        while time.monotonic() < deadline:
+            alerts = api('GET', '/api/backups/alerts')
+            if any(a['kind'] == 'MANUAL_BACKUP_FAILED' and a['resourceId'] == instance['id'] and a['active'] for a in alerts):
+                break
+            time.sleep(1)
+        else:
+            raise RuntimeError('Real failed upload did not open an alert')
+        recovered = api('POST', '/api/backups/logical/' + instance['id'], {'database': 'fixture', 'destinationId': destination['id'], 'containerId': source})
+        await_job(recovered['jobId'])
+        deadline = time.monotonic() + 45
+        while time.monotonic() < deadline:
+            alerts = api('GET', '/api/backups/alerts')
+            if any(a['kind'] == 'MANUAL_BACKUP_FAILED' and a['resourceId'] == instance['id'] and not a['active'] for a in alerts):
+                break
+            time.sleep(1)
+        else:
+            raise RuntimeError('Successful export did not resolve the failed-upload alert')
+        assert api('GET', '/api/notifications/telegram')['enabled'] is False
+        print('ASSEMBLED BACKUP/RESTORE, OFFLINE SCHEDULE, RETENTION AND ALERT SMOKE TEST PASSED', flush=True)
     finally:
         # Labels and a unique generated name limit fallback cleanup to this test's destination.
         if target_operation:

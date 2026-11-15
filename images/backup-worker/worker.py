@@ -256,6 +256,21 @@ def storage_test(request, storage):
     return {'verified': 'true'}
 
 
+def expire(request, storage):
+    # Delete only the validated UUID pair. Never list or recursively remove a prefix.
+    import re
+    base = storage.config['prefix'] + '/'
+    name = request['artifactKey'].removeprefix(base)
+    if not re.fullmatch(r'[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}\.dump\.age', name) or request['artifactKey'] != base + name:
+        raise ValueError('invalid owned artifact')
+    if request['manifestKey'] != base + name.replace('.dump.age', '.manifest.age'):
+        raise ValueError('invalid manifest pair')
+    progress(20, 'expiring owned backup')
+    storage.delete(request['manifestKey'])
+    storage.delete(request['artifactKey'])
+    return {'expired': 'true'}
+
+
 def main():
     os.umask(0o077)
     # Staged files are ciphertext. Bound each file and the overall operation runtime.
@@ -266,7 +281,7 @@ def main():
     try:
         storage = Storage(request['storage'], request.get('allowHttpStorage', False))
         action = request['action']
-        result = {'BACKUP': backup, 'RESTORE': restore, 'TEST_STORAGE': storage_test}[action](request, storage)
+        result = {'BACKUP': backup, 'RESTORE': restore, 'TEST_STORAGE': storage_test, 'EXPIRE': expire}[action](request, storage)
         atomic(WORK / 'result.json', {'ok': True, 'result': result})
         progress(100, 'completed')
     except BaseException:

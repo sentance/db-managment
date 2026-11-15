@@ -48,7 +48,7 @@ public class BackupPolicyRepository {
     /** The caller acknowledges the agent only after this proxied transaction returns (after commit). */
     @Transactional
     public void ingest(BackupPolicyEvent event) {
-        if (!List.of("SUCCEEDED","FAILED").contains(event.status())) throw ApiException.badRequest("invalid policy result");
+        if (!List.of("SUCCEEDED","FAILED","EXPIRING","EXPIRED").contains(event.status())) throw ApiException.badRequest("invalid policy result");
         require(event.policyId()); // Missing references remain on the agent for recovery/reconciliation.
         int inserted=jdbc.sql("insert into backup_policy_event(id,policy_id,backup_id) values(?,?,?) on conflict do nothing")
                 .params(event.id(),event.policyId(),event.backupId()).update();
@@ -56,6 +56,11 @@ public class BackupPolicyRepository {
         jdbc.sql("""
                 insert into logical_backup(id,instance_id,database_name,destination_id,container_id,pg_major,status,result,created_at,policy_id)
                 values(?,?,?,?,?,?,?,?::jsonb,?,?)
+                on conflict(id) do update set status=case
+                  when logical_backup.status='EXPIRED' then 'EXPIRED'
+                  when excluded.status='EXPIRED' then 'EXPIRED'
+                  when logical_backup.status='EXPIRING' or excluded.status='EXPIRING' then 'EXPIRING'
+                  else excluded.status end
                 """).params(event.backupId(),event.instanceId(),event.database(),event.destinationId(),event.containerId(),event.pgMajor(),
                 event.status(),json.write(event.result()),OffsetDateTime.ofInstant(event.startedAt(),ZoneOffset.UTC),event.policyId()).update();
     }

@@ -17,10 +17,10 @@ import dev.pgcp.cp.crypto.SecretStore;
 @Service
 public class BackupPolicyService {
     public record PolicyRequest(String name,UUID instanceId,String database,UUID destinationId,String containerId,
-            String dailyTime,String timezone,boolean enabled,boolean runImmediately,int maxAgeHours) { }
+            String dailyTime,String timezone,boolean enabled,boolean runImmediately,int maxAgeHours,Integer keepLast,Integer keepDays) { }
     public record PolicyView(UUID id,String name,long revision,UUID instanceId,String database,UUID destinationId,
             String containerId,String dailyTime,String timezone,boolean enabled,int maxAgeHours,
-            String syncState,BackupPolicyStatus execution,Instant checkedAt,String health) { }
+            String syncState,BackupPolicyStatus execution,Instant checkedAt,String health,int keepLast,int keepDays) { }
     private final BackupPolicyRepository repo;
     private final LogicalBackupService logical;
     private final SecretStore secrets;
@@ -60,7 +60,7 @@ public class BackupPolicyService {
     public PolicyView enabled(UUID id,boolean enabled) {
         stepUp.require();
         var row=repo.lock(id);var old=read(row);
-        var policy=new BackupPolicy(id,row.revision()+1,old.destinationId(),old.dailyTime(),old.timezone(),enabled,false,old.maxAgeHours(),old.template());
+        var policy=new BackupPolicy(id,row.revision()+1,old.destinationId(),old.dailyTime(),old.timezone(),enabled,false,old.maxAgeHours(),old.template(),old.keepLast(),old.keepDays());
         secrets.replace(row.templateSecretId(),json.write(policy));repo.revision(id,row.name(),policy.revision());
         audit.success("backup.policy.enabled","backup_policy",id,Map.of("enabled",enabled));
         return view(repo.require(id));
@@ -70,8 +70,8 @@ public class BackupPolicyService {
             throw ApiException.badRequest("policy name, source and destination are required");
         }
         var template=logical.consentedTemplate(request.instanceId(),new LogicalBackupService.BackupRequest(request.database(),request.destinationId(),request.containerId()),id);
-        var policy=new BackupPolicy(id,revision,request.destinationId(),request.dailyTime(),request.timezone(),request.enabled(),request.runImmediately(),request.maxAgeHours(),template);
-        try { policy.validate(allowHttp); } catch(RuntimeException e) { throw ApiException.badRequest("select a valid daily time, timezone and maximum age (24–8760 hours)"); }
+        var policy=new BackupPolicy(id,revision,request.destinationId(),request.dailyTime(),request.timezone(),request.enabled(),request.runImmediately(),request.maxAgeHours(),template,request.keepLast(),request.keepDays());
+        try { policy.validate(allowHttp); } catch(RuntimeException e) { throw ApiException.badRequest("select a valid schedule, maximum age (24–8760 hours), and retention (zero for both to disable, or at least 2 backups and 1 day)"); }
         return policy;
     }
     private BackupPolicy read(BackupPolicyRepository.Row row) { return json.read(secrets.read(row.templateSecretId()),BackupPolicy.class); }
@@ -84,7 +84,7 @@ public class BackupPolicyService {
         String health=!fresh?"UNKNOWN":!synced?"SYNC_PENDING":row.agentStatus()==null?"UNKNOWN":row.agentStatus().health();
         return new PolicyView(row.id(),row.name(),row.revision(),policy.template().instanceId(),policy.template().connection().database(),
                 policy.destinationId(),policy.template().containerId(),policy.dailyTime(),policy.timezone(),policy.enabled(),policy.maxAgeHours(),
-                sync,row.agentStatus(),row.checkedAt(),health);
+                sync,row.agentStatus(),row.checkedAt(),health,policy.keepLast(),policy.keepDays());
     }
 
     @Scheduled(fixedDelayString="${pgcp.protection.poll-interval:10s}",initialDelayString="${pgcp.protection.initial-delay:5s}")

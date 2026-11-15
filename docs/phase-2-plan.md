@@ -1,9 +1,9 @@
 # Phase 2: backup coverage and proven recovery
 
 Status: implementation in progress. Milestones 0–2 are implemented and locally
-verified; milestone 3a adds daily agent schedules, durable results and in-panel
-health. The remaining milestone 3 work is retention, notifications, automatic
-restore drills and panel disaster recovery. User priority: existing project
+verified; milestones 3a–3b add daily agent schedules, durable results, in-panel
+health, owned-backup retention and alert delivery. The remaining milestone 3 work
+is automatic restore drills and panel disaster recovery. User priority: existing project
 databases on the VPS first.
 
 ## Completed milestones
@@ -55,12 +55,28 @@ databases on the VPS first.
   application/worker builds passed, and the assembled offline-schedule/export/
   restore smoke test passed. V4 is applied to the healthy normal local stack;
   its existing administrator/data were preserved and policy APIs require auth.
-  Hosted CI is checked separately after pushing. No remote S3 provider or VPS
+  [Hosted CI for milestone 3a passed](https://github.com/sentance/db-managment/actions/runs/43695499628). No remote S3 provider or VPS
   source was used. This checkpoint does not complete milestone 3 or deploy to the VPS.
-- **3b — retention and notifications:** pending. Expire only owned scheduled
-  artifacts; preserve required recovery points and pending restores. Persist
-  failure/stale alert transitions, retry/deduplicate Telegram delivery and send
-  recovery notifications. Keep existing external repository retention unchanged.
+- **3b — retention and notifications:** implemented and locally verified. Opt-in
+  count/age retention records only successful scheduled exports and preserves the
+  newest points, newest verified recovery point and durable restore pins. Storage-only
+  workers delete exact owned UUID pairs; durable expiration results cannot regress
+  on replay. Pauses stop new expiration, while committed deletion finishes. Existing
+  external repositories, manual exports and pre-registry artifacts retain their
+  existing lifecycle. Persistent failure/stale/agent/retention/restore conditions
+  feed ordered Telegram transition deliveries with encrypted credentials, leases,
+  bounded retries and resolution updates. Delivery is at least once across an
+  external-acknowledgement crash window. Local acceptance: **58 JVM tests and 11
+  frontend tests** passed, as did frontend/application/worker builds. The assembled
+  test verified tracked restore pins, offline cleanup of explicitly aged disposable
+  artifact copies, preserved manual exports and verified points, expiration replay,
+  a real failed upload opening an alert and a later export resolving it. Telegram
+  HTTP tests use a local stub; CP tests mock its transport and verify rate limits,
+  ordering, redaction, lease recovery and the eight-attempt limit. V5 is applied to
+  the healthy local stack with existing admin/data preserved. Hosted CI is checked
+  separately after pushing; no real Telegram chat, remote provider account or VPS
+  database was used. See [retention and alerts](runbooks/backup-retention-and-alerts.md)
+  and [ADR 0008](adr/0008-owned-retention-and-alert-delivery.md).
 - **3c — automatic drills and panel recovery:** pending. Exercise real isolated
   restores, safely clean up successful drill resources, retain failed destinations,
   and prove recovery of metadata/configuration on a fresh stack using off-host
@@ -84,8 +100,8 @@ At the initial baseline, Backups and Restore used `PlannedView.vue`; S3 and Tele
 settings were placeholders. Milestone 1 now provides `BackupsView.vue`, inspection
 endpoints and source metadata. Milestone 2 adds logical restore, S3 destinations,
 backup creation and durable workers. Milestone 3a adds daily schedules and result
-delivery. Retention, notifications, automatic drills, panel recovery and
-physical/PITR restore remain unimplemented.
+delivery; milestone 3b adds retention and notifications. Automatic drills,
+panel recovery and physical/PITR restore remain unimplemented.
 The managed image already installs pgBackRest.
 
 Read-only VPS checks for this plan found:
