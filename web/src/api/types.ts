@@ -128,7 +128,7 @@ export interface BackupDestination {
 }
 export interface LogicalBackup {
   id: string; instanceId: string; databaseName: string; destinationId: string; containerId: string
-  pgMajor: number; status: string; jobId: string; result: Record<string, string>; verifiedAt: string | null; createdAt: string
+  pgMajor: number; status: string; jobId: string | null; result: Record<string, string>; verifiedAt: string | null; createdAt: string
 }
 export interface LogicalRestore {
   id: string; backupId: string; targetName: string; databaseName: string; ownerRole: string; targetInstanceId: string | null
