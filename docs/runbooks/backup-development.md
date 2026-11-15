@@ -11,7 +11,9 @@ cd web && npm ci && npm test && npm run build
 The logical-backup matrix includes PostgreSQL 16/18, pgcrypto, local S3, encrypted
 artifacts, restart reconciliation, isolated restore and sequence/row checks. A
 separate assembled test uses fresh application containers and a fresh administrator
-to exercise the real HTTP and mTLS paths end to end:
+to exercise the real HTTP and mTLS paths end to end. It also saves a daily policy,
+stops the panel before its due time, restarts the agent, verifies an offline export,
+then restarts both services and checks one imported result and outbox acknowledgement:
 
 ```bash
 python3 deploy/logical-smoke-test.py

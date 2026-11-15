@@ -77,6 +77,19 @@ public class AgentClient {
         return call(() -> rest.post().uri("/logical-backups/recovery-key").retrieve().body(RecoveryKey.class));
     }
 
+    public dev.pgcp.agent.api.BackupPolicyStatus backupPolicy(dev.pgcp.agent.api.BackupPolicy policy) {
+        return call(() -> rest.put().uri("/backup-policies").body(policy).retrieve().body(dev.pgcp.agent.api.BackupPolicyStatus.class));
+    }
+    public List<dev.pgcp.agent.api.BackupPolicyStatus> backupPolicies() {
+        return call(() -> rest.get().uri("/backup-policies").retrieve().body(new ParameterizedTypeReference<List<dev.pgcp.agent.api.BackupPolicyStatus>>() {}));
+    }
+    public List<dev.pgcp.agent.api.BackupPolicyEvent> backupEvents() {
+        return call(() -> rest.get().uri("/backup-policies/events").retrieve().body(new ParameterizedTypeReference<List<dev.pgcp.agent.api.BackupPolicyEvent>>() {}));
+    }
+    public void acknowledgeBackupEvent(UUID id) {
+        call(() -> { rest.delete().uri("/backup-policies/events/{id}",id).retrieve().toBodilessEntity();return null; });
+    }
+
     public Operation logical(LogicalBackupRequest request, JobContext ctx) throws InterruptedException {
         Instant deadline = Instant.now().plus(Duration.ofHours(2));
         Operation op = null;

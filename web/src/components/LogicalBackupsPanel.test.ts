@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { api } from '@/api/client'
 import LogicalBackupsPanel from './LogicalBackupsPanel.vue'
 
-vi.mock('@/api/client', () => ({ api: { get: vi.fn(), post: vi.fn() }, errorMessage: (e: Error) => e.message }))
+vi.mock('@/api/client', () => ({ api: { get: vi.fn(), post: vi.fn(), put: vi.fn() }, errorMessage: (e: Error) => e.message }))
 afterEach(() => vi.clearAllMocks())
 function render() {
   return mount(LogicalBackupsPanel, { global: { plugins: [PrimeVue], stubs: {
@@ -36,6 +36,18 @@ describe('logical backup workflows', () => {
     await wrapper.findAll('button').find(b => b.text() === 'I saved the key')!.trigger('click')
     expect(wrapper.text()).not.toContain('AGE-SECRET-KEY-1ONE-TIME')
     expect(api.post).toHaveBeenCalledOnce()
+    wrapper.unmount()
+  })
+  it('keeps pending pause distinct from the last confirmed running schedule', async () => {
+    const policy = { id: 'policy', name: 'Daily app', database: 'app', dailyTime: '02:00', timezone: 'Europe/Prague', enabled: false, health: 'SYNC_PENDING', syncState: 'PENDING', execution: { enabled: true, nextRunAt: '2026-11-16T01:00:00Z', lastSuccessAt: null } }
+    vi.mocked(api.get).mockImplementation(async path => path === '/api/backups/policies' ? [policy] : [])
+    const wrapper = render(); await flushPromises()
+    expect(wrapper.text()).toContain('Waiting for agent')
+    expect(wrapper.text()).toContain('Daily app')
+    expect(wrapper.text()).toContain('Pausing takes effect when the agent confirms it')
+    expect(wrapper.text()).toContain('None confirmed')
+    await wrapper.findAll('button').find(b => b.text() === 'Resume')!.trigger('click'); await flushPromises()
+    expect(api.put).toHaveBeenCalledWith('/api/backups/policies/policy/enabled', { enabled: true })
     wrapper.unmount()
   })
 })

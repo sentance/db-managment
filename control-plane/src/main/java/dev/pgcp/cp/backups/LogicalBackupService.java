@@ -84,6 +84,18 @@ public class LogicalBackupService {
     @Transactional
     public Submitted backup(UUID instanceId, BackupRequest request) {
         stepUp.require();
+        UUID id=UUID.randomUUID();
+        LogicalBackupRequest operation=consentedTemplate(instanceId,request,id);
+        Instance source=instances.require(instanceId);
+        repo.insertBackup(id,instanceId,request.database(),request.destinationId(),operation.containerId(),operation.pgMajor());
+        UUID job=jobs.submit("backup.logical",source.resourceKey(),"Back up "+source.name()+" / "+request.database(),new ItemParams(id));
+        repo.backupJob(id,job);
+        audit.success("backup.logical.consent","instance",instanceId,Map.of("database",request.database(),"backupId",id.toString()));
+        return new Submitted(id,job);
+    }
+
+    /** Called only by step-up protected export/policy consent paths. */
+    public LogicalBackupRequest consentedTemplate(UUID instanceId, BackupRequest request, UUID operationId) {
         Instance source=instances.require(instanceId);
         var destination=repo.destination(request.destinationId());
         if (!"VERIFIED".equals(destination.status())) throw ApiException.badRequest("test the destination before creating a backup");
@@ -95,12 +107,8 @@ public class LogicalBackupService {
         catch (IllegalArgumentException e) { throw ApiException.badRequest("this PostgreSQL major is not supported for logical backup"); }
         if (request.database()==null || request.database().isEmpty() || request.database().length()>63
                 || !connector.withMaintenance(source,c->PgAdmin.databaseExists(c,request.database()))) throw ApiException.badRequest("select an existing source database");
-        UUID id=UUID.randomUUID();
-        repo.insertBackup(id,instanceId,request.database(),request.destinationId(),container.id(),container.pgMajor());
-        UUID job=jobs.submit("backup.logical",source.resourceKey(),"Back up "+source.name()+" / "+request.database(),new ItemParams(id));
-        repo.backupJob(id,job);
-        audit.success("backup.logical.consent","instance",instanceId,Map.of("database",request.database(),"backupId",id.toString()));
-        return new Submitted(id,job);
+        return backupOperation(new LogicalRepository.Backup(operationId,instanceId,request.database(),request.destinationId(),
+                container.id(),container.pgMajor(),"PENDING",null,Map.of(),null,java.time.Instant.now()));
     }
 
     @Transactional

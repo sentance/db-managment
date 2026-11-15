@@ -1,7 +1,10 @@
 # Phase 2: backup coverage and proven recovery
 
 Status: implementation in progress. Milestones 0–2 are implemented and locally
-verified; milestone 3 is next. User priority: existing project databases on the VPS first.
+verified; milestone 3a adds daily agent schedules, durable results and in-panel
+health. The remaining milestone 3 work is retention, notifications, automatic
+restore drills and panel disaster recovery. User priority: existing project
+databases on the VPS first.
 
 ## Completed milestones
 
@@ -37,6 +40,32 @@ verified; milestone 3 is next. User priority: existing project databases on the 
   remain separate. See [logical backups](runbooks/logical-backups.md) and
   [ADR 0007](adr/0007-logical-backup-encryption.md).
 
+## Milestone 3 checkpoints
+
+- **3a — daily schedules and durable results:** policy revisions, explicit recurring
+  export consent, timezone/DST handling, one catch-up without a backlog, source
+  identity checks, protected offline credential snapshots, global/source locks,
+  credential rotation, confirmed/pending pause states, durable outbox and
+  transactional idempotent imports are implemented. The UI shows fresh, stale,
+  failed, overdue and unknown evidence. A successful export's start time is used
+  for freshness, including results consumed after an outage. Validation covers
+  restart/delivery, consent/redaction, DST, worker preparation and full application
+  export/restore through HTTP/mTLS. See [daily schedules](runbooks/backup-schedules.md).
+  Local acceptance: **50 JVM tests and ten frontend tests** passed, frontend and
+  application/worker builds passed, and the assembled offline-schedule/export/
+  restore smoke test passed. V4 is applied to the healthy normal local stack;
+  its existing administrator/data were preserved and policy APIs require auth.
+  Hosted CI is checked separately after pushing. No remote S3 provider or VPS
+  source was used. This checkpoint does not complete milestone 3 or deploy to the VPS.
+- **3b — retention and notifications:** pending. Expire only owned scheduled
+  artifacts; preserve required recovery points and pending restores. Persist
+  failure/stale alert transitions, retry/deduplicate Telegram delivery and send
+  recovery notifications. Keep existing external repository retention unchanged.
+- **3c — automatic drills and panel recovery:** pending. Exercise real isolated
+  restores, safely clean up successful drill resources, retain failed destinations,
+  and prove recovery of metadata/configuration on a fresh stack using off-host
+  artifacts and separately held keys.
+
 ## Product outcome
 
 For each project database, the panel should answer: **Is it protected? What can I
@@ -54,8 +83,9 @@ instances, databases/roles, jobs, audit, encrypted secret storage and monitoring
 At the initial baseline, Backups and Restore used `PlannedView.vue`; S3 and Telegram
 settings were placeholders. Milestone 1 now provides `BackupsView.vue`, inspection
 endpoints and source metadata. Milestone 2 adds logical restore, S3 destinations,
-backup creation and durable workers. Backup schedules, retention, notifications
-and physical/PITR restore remain unimplemented.
+backup creation and durable workers. Milestone 3a adds daily schedules and result
+delivery. Retention, notifications, automatic drills, panel recovery and
+physical/PITR restore remain unimplemented.
 The managed image already installs pgBackRest.
 
 Read-only VPS checks for this plan found:
@@ -175,7 +205,8 @@ stores durable worker identities and reconciles results; CP reconnects by operat
 ID; worker pipes keep dump data separate from diagnostics; credentials use temporary
 protected files; workers receive storage egress; and `OperationService` shares target
 reservations with them. Generic Phase 1 operations retain their existing behaviour.
-Milestone 3 must extend these guarantees to policy scheduling and result outboxes.
+Milestone 3a extends these guarantees to policy scheduling and result outboxes;
+the remaining operational protection checkpoints are listed above.
 
 Original baseline findings:
 

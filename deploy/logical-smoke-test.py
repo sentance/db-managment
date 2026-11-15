@@ -175,7 +175,8 @@ secrets:
             raise RuntimeError('Job deadline exceeded')
 
         api('GET', '/api/auth/status')
-        setup = api('POST', '/api/auth/setup', {'token': run('docker', 'exec', cp, 'cat', '/var/lib/pgcp-cp/setup-token'), 'username': 'smoke', 'password': secrets.token_hex(24)})
+        admin_password = secrets.token_hex(24)
+        setup = api('POST', '/api/auth/setup', {'token': run('docker', 'exec', cp, 'cat', '/var/lib/pgcp-cp/setup-token'), 'username': 'smoke', 'password': admin_password})
         totp = setup['totpSecret']
         api('POST', '/api/auth/setup/totp', {'code': code()})
         source = run(*compose, 'ps', '-q', 'source')
@@ -193,6 +194,62 @@ secrets:
         print('Creating encrypted backup through application API', flush=True)
         backup = api('POST', '/api/backups/logical/' + instance['id'], {'database': 'fixture', 'destinationId': destination['id'], 'containerId': source})
         await_job(backup['jobId'])
+        print('Scheduling a backup, stopping the panel and restarting the agent', flush=True)
+        daily_time = time.strftime('%H:%M', time.gmtime(time.time() + 120))
+        policy = api('POST', '/api/backups/policies', {'name': 'Offline schedule', 'instanceId': instance['id'], 'database': 'fixture',
+            'destinationId': destination['id'], 'containerId': source, 'dailyTime': daily_time, 'timezone': 'UTC',
+            'enabled': True, 'runImmediately': False, 'maxAgeHours': 26})
+        deadline = time.monotonic() + 60
+        while time.monotonic() < deadline:
+            saved = next(p for p in api('GET', '/api/backups/policies') if p['id'] == policy['id'])
+            if saved['syncState'] == 'APPLIED':
+                assert saved['execution']['activeRunId'] is None, 'The panel must stop before the scheduled run starts'
+                break
+            time.sleep(1)
+        else:
+            raise RuntimeError('Policy was not acknowledged by the agent')
+        run(*compose, 'stop', 'control-plane')
+        run(*compose, 'restart', 'agent')
+        events_path = str(work / 'runtime' / 'protection' / 'outbox')
+        deadline = time.monotonic() + 300
+        while time.monotonic() < deadline:
+            files = run('docker', 'exec', agent, 'find', events_path, '-name', '*.json').splitlines()
+            if files:
+                assert len(files) == 1
+                event = json.loads(run('docker', 'exec', agent, 'cat', files[0]))
+                assert event['policyId'] == policy['id'] and event['status'] == 'SUCCEEDED'
+                assert len(event['result']['sha256']) == 64
+                break
+            time.sleep(1)
+        else:
+            raise RuntimeError('Agent did not complete the backup while the panel was stopped')
+        print('Replaying the durable result after another agent restart and panel restart', flush=True)
+        run(*compose, 'restart', 'agent')
+        assert len(run('docker', 'exec', agent, 'find', events_path, '-name', '*.json').splitlines()) == 1
+        run(*compose, 'up', '-d', '--wait', '--wait-timeout', '120', 'control-plane')
+        # Sessions are in memory, so authenticate again after the panel restart.
+        api('GET', '/api/auth/status')
+        api('POST', '/api/auth/login', {'username': 'smoke', 'password': admin_password, 'code': code()})
+        deadline = time.monotonic() + 60
+        while time.monotonic() < deadline:
+            history = api('GET', '/api/backups/logical')
+            scheduled = [b for b in history if b['id'] == event['backupId']]
+            if scheduled:
+                assert len(scheduled) == 1 and scheduled[0]['status'] == 'SUCCEEDED'
+                assert len(history) == 2
+                assert not scheduled[0]['jobId']
+                break
+            time.sleep(1)
+        else:
+            raise RuntimeError('Panel did not import the durable scheduled result')
+        deadline = time.monotonic() + 30
+        while time.monotonic() < deadline:
+            if not run('docker', 'exec', agent, 'find', events_path, '-name', '*.json'):
+                break
+            time.sleep(1)
+        else:
+            raise RuntimeError('Panel did not acknowledge the imported result')
+        api('PUT', '/api/backups/policies/' + policy['id'] + '/enabled', {'enabled': False})
         run('docker', 'exec', '-u', 'postgres', source, 'psql', '-X', '-d', 'fixture', '-c', "insert into orders(description) values ('after backup')")
         print('Restoring through application API and verifying isolation', flush=True)
         restored = api('POST', '/api/backups/logical/' + backup['id'] + '/restore', {'instanceName': target_name, 'database': 'restored', 'owner': 'restored_owner'})
@@ -206,7 +263,7 @@ secrets:
         networks = json.loads(run('docker', 'inspect', '--format', '{{json .NetworkSettings.Networks}}', target))
         assert list(networks) == ['pgcp-restore-' + restored['id']]
         await_job(api('POST', '/api/instances/' + target_id + '/delete', {'confirmName': target_name, 'deleteVolume': True})['jobId'])
-        print('ASSEMBLED LOGICAL BACKUP/RESTORE SMOKE TEST PASSED', flush=True)
+        print('ASSEMBLED LOGICAL BACKUP/RESTORE AND OFFLINE SCHEDULE SMOKE TEST PASSED', flush=True)
     finally:
         # Labels and a unique generated name limit fallback cleanup to this test's destination.
         if target_operation:

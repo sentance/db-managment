@@ -208,6 +208,80 @@
         }
       }
     },
+    "/api/backups/policies/{id}" : {
+      "put" : {
+        "tags" : [ "backup-policy-controller" ],
+        "operationId" : "update",
+        "parameters" : [ {
+          "name" : "id",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/PolicyRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PolicyView"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/backups/policies/{id}/enabled" : {
+      "put" : {
+        "tags" : [ "backup-policy-controller" ],
+        "operationId" : "enabled",
+        "parameters" : [ {
+          "name" : "id",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/Enabled"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PolicyView"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/instances/{instanceId}/roles" : {
       "get" : {
         "tags" : [ "role-controller" ],
@@ -743,6 +817,53 @@
         }
       }
     },
+    "/api/backups/policies" : {
+      "get" : {
+        "tags" : [ "backup-policy-controller" ],
+        "operationId" : "list_2",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/PolicyView"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post" : {
+        "tags" : [ "backup-policy-controller" ],
+        "operationId" : "create_2",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/PolicyRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "201" : {
+            "description" : "Created",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PolicyView"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/backups/logical/{instanceId}" : {
       "post" : {
         "tags" : [ "logical-backup-controller" ],
@@ -839,7 +960,7 @@
       },
       "post" : {
         "tags" : [ "logical-backup-controller" ],
-        "operationId" : "create_2",
+        "operationId" : "create_3",
         "requestBody" : {
           "content" : {
             "application/json" : {
@@ -1081,7 +1202,7 @@
     "/api/servers" : {
       "get" : {
         "tags" : [ "server-controller" ],
-        "operationId" : "list_2",
+        "operationId" : "list_3",
         "responses" : {
           "200" : {
             "description" : "OK",
@@ -1159,7 +1280,7 @@
     "/api/jobs" : {
       "get" : {
         "tags" : [ "job-controller" ],
-        "operationId" : "list_3",
+        "operationId" : "list_4",
         "parameters" : [ {
           "name" : "limit",
           "in" : "query",
@@ -1231,7 +1352,7 @@
     "/api/instances" : {
       "get" : {
         "tags" : [ "instance-controller" ],
-        "operationId" : "list_4",
+        "operationId" : "list_5",
         "responses" : {
           "200" : {
             "description" : "OK",
@@ -1553,7 +1674,7 @@
     "/api/backups" : {
       "get" : {
         "tags" : [ "backup-controller" ],
-        "operationId" : "list_5",
+        "operationId" : "list_6",
         "responses" : {
           "200" : {
             "description" : "OK",
@@ -1634,7 +1755,7 @@
     "/api/audit" : {
       "get" : {
         "tags" : [ "audit-controller" ],
-        "operationId" : "list_6",
+        "operationId" : "list_7",
         "parameters" : [ {
           "name" : "limit",
           "in" : "query",
@@ -2081,6 +2202,146 @@
           },
           "snapshot" : {
             "$ref" : "#/components/schemas/Snapshot"
+          }
+        }
+      },
+      "PolicyRequest" : {
+        "type" : "object",
+        "properties" : {
+          "name" : {
+            "type" : "string"
+          },
+          "instanceId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "database" : {
+            "type" : "string"
+          },
+          "destinationId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "containerId" : {
+            "type" : "string"
+          },
+          "dailyTime" : {
+            "type" : "string"
+          },
+          "timezone" : {
+            "type" : "string"
+          },
+          "enabled" : {
+            "type" : "boolean"
+          },
+          "runImmediately" : {
+            "type" : "boolean"
+          },
+          "maxAgeHours" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }
+      },
+      "BackupPolicyStatus" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "revision" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "enabled" : {
+            "type" : "boolean"
+          },
+          "nextRunAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "activeRunId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "lastRunAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "lastStatus" : {
+            "type" : "string"
+          },
+          "lastSuccessAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "health" : {
+            "type" : "string"
+          }
+        }
+      },
+      "PolicyView" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "revision" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "instanceId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "database" : {
+            "type" : "string"
+          },
+          "destinationId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "containerId" : {
+            "type" : "string"
+          },
+          "dailyTime" : {
+            "type" : "string"
+          },
+          "timezone" : {
+            "type" : "string"
+          },
+          "enabled" : {
+            "type" : "boolean"
+          },
+          "maxAgeHours" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "syncState" : {
+            "type" : "string"
+          },
+          "execution" : {
+            "$ref" : "#/components/schemas/BackupPolicyStatus"
+          },
+          "checkedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "health" : {
+            "type" : "string"
+          }
+        }
+      },
+      "Enabled" : {
+        "type" : "object",
+        "properties" : {
+          "enabled" : {
+            "type" : "boolean"
           }
         }
       },

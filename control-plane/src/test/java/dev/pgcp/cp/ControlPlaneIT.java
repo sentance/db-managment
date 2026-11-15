@@ -85,6 +85,7 @@ class ControlPlaneIT {
         r.add("pgcp.agent.tls", () -> "false");
         r.add("pgcp.health-interval", () -> "1h");
         r.add("pgcp.backups.initial-delay", () -> "1h");
+        r.add("pgcp.protection.initial-delay", () -> "1h");
         r.add("server.servlet.session.cookie.secure", () -> "false");
         for (String k : new String[] { "PGCP_AGENT_CLIENT_CERT", "PGCP_AGENT_CA" }) {
             r.add(k, () -> "classpath:tls/test-cert.pem");
@@ -100,6 +101,9 @@ class ControlPlaneIT {
 
     @Autowired
     JsonMapper json;
+
+    @Autowired
+    dev.pgcp.cp.backups.BackupPolicyService policies;
 
     MockHttpSession session = new MockHttpSession();
 
@@ -265,6 +269,53 @@ class ControlPlaneIT {
         call(post("/api/backups/logical/"+savedBackup+"/restore"),Map.of("instanceName","target","database","restored","owner","restored_owner"),409);
         call(post("/api/instances/"+monitorId+"/databases"),Map.of("name","still-forbidden"),403);
 
+        // --- agent-owned policies: explicit consent, redacted snapshots and commit-before-ack replay ---
+        var policyRequest=new java.util.HashMap<String,Object>(Map.of("name","Daily app","instanceId",monitorId,"database","postgres",
+                "destinationId",destinationId,"containerId",backupContainerId,"dailyTime","02:00","timezone","Europe/Prague",
+                "enabled",true,"runImmediately",false));
+        policyRequest.put("maxAgeHours",26);
+        session.removeAttribute("pgcp.stepUpUntil");
+        call(post("/api/backups/policies"),policyRequest,403);
+        session.setAttribute("pgcp.stepUpUntil",unlocked);
+        policyRequest.put("timezone","invalid-zone");call(post("/api/backups/policies"),policyRequest,400);
+        policyRequest.put("timezone","Europe/Prague");
+        var policy=call(post("/api/backups/policies"),policyRequest,201);
+        String policyId=policy.get("id").asString();
+        assertThat(policy.get("syncState").asString()).isEqualTo("PENDING");
+        var observed=new java.util.HashMap<java.util.UUID,dev.pgcp.agent.api.BackupPolicyStatus>();
+        org.mockito.Mockito.when(agent.backupPolicies()).thenAnswer(i->java.util.List.copyOf(observed.values()));
+        org.mockito.Mockito.when(agent.backupEvents()).thenReturn(java.util.List.of());
+        org.mockito.Mockito.when(agent.backupPolicy(org.mockito.ArgumentMatchers.any())).thenAnswer(i->{
+            dev.pgcp.agent.api.BackupPolicy p=i.getArgument(0);
+            assertThat(p.template().storage().identity()).isNull();
+            var s=new dev.pgcp.agent.api.BackupPolicyStatus(p.id(),p.revision(),p.enabled(),Instant.now().plusSeconds(3600),null,
+                    null,null,null,p.enabled()?"AWAITING_FIRST_BACKUP":"PAUSED");observed.put(p.id(),s);return s;
+        });
+        policies.reconcile();
+        assertThat(call(get("/api/backups/policies"),null,200).toString()).contains("APPLIED","AWAITING_FIRST_BACKUP")
+                .doesNotContain(storageSecret,recoveryIdentity,target.getPassword(),"templateSecretId","template");
+        java.util.UUID runId=java.util.UUID.randomUUID(),eventId=java.util.UUID.randomUUID();
+        var event=new dev.pgcp.agent.api.BackupPolicyEvent(eventId,java.util.UUID.fromString(policyId),1,runId,
+                java.util.UUID.fromString(monitorId),java.util.UUID.fromString(destinationId),"postgres",backupContainerId,18,
+                "FAILED",Map.of(),Instant.now(),Instant.now());
+        org.mockito.Mockito.when(agent.backupEvents()).thenReturn(java.util.List.of(event));
+        org.mockito.Mockito.doThrow(dev.pgcp.cp.common.ApiException.unavailable("lost acknowledgement"))
+                .doNothing().when(agent).acknowledgeBackupEvent(eventId);
+        policies.reconcile();policies.reconcile();
+        JsonNode history=call(get("/api/backups/logical"),null,200);
+        long occurrences=java.util.stream.StreamSupport.stream(history.spliterator(),false).filter(n->n.get("id").asString().equals(runId.toString())).count();
+        assertThat(occurrences).isEqualTo(1);
+        var pendingPause=call(put("/api/backups/policies/"+policyId+"/enabled"),Map.of("enabled",false),200);
+        assertThat(pendingPause.get("enabled").asBoolean()).isFalse();
+        assertThat(pendingPause.get("execution").get("enabled").asBoolean()).isTrue();
+        assertThat(pendingPause.get("health").asString()).isEqualTo("SYNC_PENDING");
+        policies.reconcile();
+        assertThat(call(get("/api/backups/policies"),null,200).toString()).contains("PAUSED");
+        org.mockito.Mockito.when(agent.backupPolicies()).thenThrow(dev.pgcp.cp.common.ApiException.unavailable("secret-agent-diagnostic"));
+        policies.reconcile();
+        assertThat(call(get("/api/backups/policies"),null,200).toString()).contains("UNKNOWN","UNCONFIRMED")
+                .doesNotContain("secret-agent-diagnostic");
+
         // --- audit chain is intact and never contains secrets --------------------------------------------------------
         assertThat(call(get("/api/audit/verify"), null, 200).get("intact").asBoolean()).isTrue();
         String audit = call(get("/api/audit?limit=500"), null, 200).toString();
@@ -278,6 +329,9 @@ class ControlPlaneIT {
         assertThat(call(post("/api/auth/recovery-codes"), null, 200).get("recoveryCodes").size()).isEqualTo(10);
         String openApi = mvc.perform(get("/api/docs").session(session)).andReturn().getResponse().getContentAsString();
         assertThat(openApi).contains("/api/instances/managed");
+        assertThat(json.readTree(openApi).at("/components/schemas/PolicyView/properties/execution/$ref").asString())
+                .isEqualTo("#/components/schemas/BackupPolicyStatus");
+        assertThat(json.readTree(openApi).at("/components/schemas/View/properties/backupState").isMissingNode()).isFalse();
         Path docs = Path.of("..", "docs");
         if (Files.isDirectory(docs)) {
             Files.writeString(docs.resolve("openapi.json"), json.writerWithDefaultPrettyPrinter()

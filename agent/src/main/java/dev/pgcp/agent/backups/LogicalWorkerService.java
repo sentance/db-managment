@@ -154,14 +154,16 @@ public class LogicalWorkerService {
         var existing = docker.inspect(d.worker());
         if (existing.isPresent()) {
             requireOwned(existing.get(), id);
-            if ("created".equals(existing.get().state())) safeRun(List.of(props.dockerCommand(), "start", d.worker()));
+            if ("created".equals(existing.get().state())) {
+                LogicalBackupRequest req = readRequest(id);
+                connectSource(req, existing.get());
+                safeRun(List.of(props.dockerCommand(), "start", d.worker()));
+            }
             return;
         }
         Path dir = root.resolve(id.toString());
-        LogicalBackupRequest req = json.readerFor(LogicalBackupRequest.class)
-                .without(tools.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
-                .readValue(dir.resolve("request.json").toFile());
-        ContainerInfo source = req.action() == LogicalBackupRequest.Action.TEST_STORAGE ? null : target(req);
+        LogicalBackupRequest req = readRequest(id);
+        if (req.action() != LogicalBackupRequest.Action.TEST_STORAGE) target(req);
         if (Files.getFileStore(root).getUsableSpace() < 5L * 1024 * 1024 * 1024) throw failure("insufficient staging disk");
         String image = ensureImage(req.pgMajor());
         List<String> args = new ArrayList<>(List.of(props.dockerCommand(), "create", "--name", d.worker(),
@@ -171,13 +173,23 @@ public class LogicalWorkerService {
                 "--mount", "type=bind,src=" + dir.resolve("request.json") + ",dst=/run/pgcp/request.json,readonly",
                 "--mount", "type=bind,src=" + dir.resolve("work") + ",dst=/work", image));
         safeRun(args);
-        if (source != null) {
+        connectSource(req, docker.inspect(d.worker()).orElseThrow(() -> failure("worker disappeared during preparation")));
+        safeRun(List.of(props.dockerCommand(), "start", d.worker()));
+    }
+
+    private LogicalBackupRequest readRequest(UUID id) {
+        return json.readerFor(LogicalBackupRequest.class)
+                .without(tools.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
+                .readValue(root.resolve(id.toString()).resolve("request.json").toFile());
+    }
+    private void connectSource(LogicalBackupRequest req, ContainerInfo worker) {
+        if (req.action() != LogicalBackupRequest.Action.TEST_STORAGE) {
+            ContainerInfo source = target(req);
             // Backup sources choose an existing network; restore targets have exactly their dedicated internal network.
             String network = source.networks().stream().filter(n -> !n.equals("host") && !n.equals("none") && !n.equals("bridge"))
                     .findFirst().orElseThrow(() -> failure("a user-defined source network is required"));
-            if (!network.equals(storageNetwork)) safeRun(List.of(props.dockerCommand(), "network", "connect", network, d.worker()));
+            if (!worker.networks().contains(network)) safeRun(List.of(props.dockerCommand(), "network", "connect", network, worker.name()));
         }
-        safeRun(List.of(props.dockerCommand(), "start", d.worker()));
     }
 
     public synchronized Operation get(UUID id) {
@@ -188,9 +200,11 @@ public class LogicalWorkerService {
         if (worker.isEmpty()) { finish(id, false, Map.of(), "worker disappeared; operation was not retried automatically"); }
         else {
             requireOwned(worker.get(), id);
-            if (Instant.now().isAfter(d.deadline()) && "running".equals(worker.get().state())) {
-                safeRun(List.of(props.dockerCommand(), "kill", d.worker()));
+            if (Instant.now().isAfter(d.deadline()) && !List.of("exited", "dead").contains(worker.get().state())) {
+                if ("running".equals(worker.get().state())) safeRun(List.of(props.dockerCommand(), "kill", d.worker()));
                 finish(id, false, Map.of(), "worker exceeded its deadline");
+            } else if ("created".equals(worker.get().state())) {
+                launchAsync(id); // Recover a crash between create, network attachment and start.
             } else if ("exited".equals(worker.get().state()) || "dead".equals(worker.get().state())) {
                 Path result = root.resolve(id.toString()).resolve("work/result.json");
                 try {

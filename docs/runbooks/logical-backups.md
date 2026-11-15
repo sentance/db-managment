@@ -1,8 +1,9 @@
 # Encrypted logical backup and restore
 
-This milestone adds on-demand database backups. Existing external PostgreSQL
+This feature provides on-demand and opt-in daily database backups. Existing external PostgreSQL
 configuration, pgBackRest repositories and their schedules remain unchanged.
-The panel does not yet schedule these exports or expire their remote objects.
+See [daily schedules](backup-schedules.md) for agent-owned execution during panel
+outages. Remote objects are not yet expired automatically.
 
 ## Storage and recovery key
 
